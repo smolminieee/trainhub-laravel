@@ -1,0 +1,3498 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* =========================================================
+   TRAINHUB AL AMIN — UI HANDOFF V3 DESIGN LAYER
+   Visual system adapted from the supplied Al Amin Edu Oasis UI.
+   Business logic and page actions remain unchanged.
+========================================================= */
+
+:root {
+    --app-font-family: "Inter", sans-serif;
+    --app-shell-max-width: 1880px;
+    --app-page-top-space: clamp(22px, 2.2vw, 36px);
+    --app-page-gutter: clamp(16px, 2.4vw, 44px);
+    --app-page-bottom-space: clamp(44px, 4vw, 68px);
+    --app-header-height: 58px;
+
+    --app-background: #f8fafc;
+    --app-surface: #ffffff;
+    --app-text: #0f172a;
+    --app-text-secondary: #475569;
+    --app-text-muted: #64748b;
+    --app-text-subtle: #94a3b8;
+    --app-border: #e2e8f0;
+    --app-border-strong: #cbd5e1;
+    --app-divider: #f1f5f9;
+
+    --app-primary: #2563eb;
+    --app-primary-dark: #2563EB;
+    --app-primary-soft: #eff6ff;
+    --app-primary-border: #EFF6FF;
+
+    --app-success: #059669;
+    --app-success-soft: #ecfdf5;
+    --app-warning: #d97706;
+    --app-warning-soft: #fffbeb;
+    --app-danger: #dc2626;
+    --app-danger-soft: #fff1f2;
+    --app-indigo: #2563EB;
+    --app-indigo-soft: #EFF6FF;
+    --app-cyan: #0e7490;
+    --app-cyan-soft: #ecfeff;
+
+    --app-radius-control: 10px;
+    --app-radius-compact: 9px;
+    --app-radius-card: 16px;
+    --app-radius-panel: 18px;
+    --app-radius-pill: 999px;
+
+    --app-shadow-header: 0 1px 10px rgba(15, 23, 42, 0.04);
+    --app-shadow-card: 0 6px 20px rgba(15, 23, 42, 0.05);
+    --app-shadow-raised: 0 12px 28px rgba(15, 23, 42, 0.08);
+    --app-shadow-modal: 0 24px 56px rgba(15, 23, 42, 0.26);
+    --app-focus-ring: rgba(37, 99, 235, 0.30);
+    --app-input-focus-ring: rgba(37, 99, 235, 0.09);
+
+    /* Compatibility aliases used by the existing TrainHub CSS. */
+    --primary: var(--app-primary);
+    --primary-dark: var(--app-primary-dark);
+    --primary-soft: var(--app-primary-soft);
+    --primary-light: var(--app-primary-soft);
+    --text: var(--app-text);
+    --muted: var(--app-text-muted);
+    --border: var(--app-border);
+    --bg: var(--app-background);
+    --white: var(--app-surface);
+    --green: var(--app-success);
+    --green-soft: var(--app-success-soft);
+    --orange: var(--app-warning);
+    --orange-soft: var(--app-warning-soft);
+    --danger: var(--app-danger);
+    --danger-soft: var(--app-danger-soft);
+    --success: var(--app-success);
+    --success-soft: var(--app-success-soft);
+    --purple: var(--app-indigo);
+    --purple-soft: var(--app-indigo-soft);
+    --shadow: var(--app-shadow-card);
+}
+
+html {
+    background: var(--app-background);
+    scrollbar-gutter: stable;
+}
+
+body.trainhub-app,
+body.page-dashboard,
+body.page-teacher,
+body.page-course,
+body.page-trainer,
+body.page-feedback,
+body.page-certificate,
+body.page-settings {
+    min-width: 320px;
+    margin: 0;
+    background: var(--app-background) !important;
+    color: var(--app-text) !important;
+    font-family: var(--app-font-family) !important;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body.trainhub-app *,
+body.trainhub-app *::before,
+body.trainhub-app *::after {
+    box-sizing: border-box;
+}
+
+body.trainhub-app :is(button, input, select, textarea) {
+    font-family: var(--app-font-family) !important;
+}
+
+body.trainhub-app :is(a, button, input, select, textarea):focus-visible {
+    outline: 3px solid var(--app-focus-ring) !important;
+    outline-offset: 2px;
+}
+
+body.trainhub-app svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* =========================================================
+   PAGE SHELL + HEADING
+========================================================= */
+
+body.trainhub-app > .page,
+body.trainhub-app .cert-page,
+body.trainhub-app main.page {
+    width: min(100%, var(--app-shell-max-width)) !important;
+    max-width: var(--app-shell-max-width) !important;
+    min-width: 0;
+    margin-inline: auto !important;
+    padding: var(--app-page-top-space) var(--app-page-gutter) var(--app-page-bottom-space) !important;
+}
+
+body.trainhub-app .dashboard-header,
+body.trainhub-app .feedback-page-header,
+body.trainhub-app .cert-header,
+body.trainhub-app .settings-header {
+    margin: 0 0 20px !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    flex-wrap: wrap;
+}
+
+body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) > div:first-child {
+    min-width: 0;
+}
+
+body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) h1 {
+    margin: 0 0 5px !important;
+    color: var(--app-text) !important;
+    font-size: 26px !important;
+    font-weight: 850 !important;
+    line-height: 1.18 !important;
+    letter-spacing: -0.035em !important;
+    overflow-wrap: anywhere;
+}
+
+body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) p {
+    max-width: 820px;
+    margin: 0 !important;
+    color: var(--app-text-muted) !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.6 !important;
+}
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+body.trainhub-app :is(
+    .primary-btn,
+    .filter-submit-btn,
+    .filter-btn,
+    .list-filter-btn,
+    .approve-btn,
+    .submit-btn,
+    .save-assignment-btn,
+    .confirm-modal-btn,
+    .save-feedback-btn,
+    .generate-btn,
+    .save-position-btn,
+    .download-selected-btn
+) {
+    min-height: 40px !important;
+    padding: 10px 17px !important;
+    border: 1px solid transparent !important;
+    border-radius: 11px !important;
+    background: var(--app-primary) !important;
+    color: #fff !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    font-size: 13px !important;
+    font-weight: 850 !important;
+    line-height: 1 !important;
+    text-decoration: none !important;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.18) !important;
+    transition: background .18s ease, transform .15s ease, box-shadow .15s ease !important;
+}
+
+body.trainhub-app :is(
+    .primary-btn,
+    .filter-submit-btn,
+    .filter-btn,
+    .list-filter-btn,
+    .approve-btn,
+    .save-assignment-btn,
+    .confirm-modal-btn,
+    .save-feedback-btn,
+    .generate-btn,
+    .save-position-btn,
+    .download-selected-btn
+):hover:not(:disabled) {
+    background: var(--app-primary-dark) !important;
+}
+
+body.trainhub-app :is(
+    .reset-filter,
+    .secondary-action-btn,
+    .secondary-btn,
+    .back-link-btn,
+    .secondary-back-btn,
+    .list-reset-btn,
+    .cancel-btn,
+    .close-btn,
+    .modal-cancel-btn,
+    .mini-secondary-btn,
+    .action-btn,
+    .inline-action-btn,
+    .participant-reset-btn,
+    .participant-filter-btn,
+    .add-question-btn,
+    .add-session-btn
+) {
+    min-height: 36px !important;
+    padding: 8px 13px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 9px !important;
+    background: var(--app-surface) !important;
+    color: var(--app-text-secondary) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+    cursor: pointer;
+}
+
+body.trainhub-app :is(
+    .reset-filter,
+    .secondary-action-btn,
+    .secondary-btn,
+    .back-link-btn,
+    .secondary-back-btn,
+    .list-reset-btn,
+    .cancel-btn,
+    .close-btn,
+    .modal-cancel-btn,
+    .mini-secondary-btn,
+    .action-btn,
+    .inline-action-btn,
+    .participant-reset-btn,
+    .participant-filter-btn,
+    .add-question-btn,
+    .add-session-btn
+):hover:not(:disabled) {
+    border-color: var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary-dark) !important;
+}
+
+body.trainhub-app :is(.danger-outline-btn, .danger-action, .danger-btn, .remove-category-btn, .remove-question-btn, .session-remove-btn, .danger-inline-btn) {
+    border-color: #fecaca !important;
+    background: #fff !important;
+    color: var(--app-danger) !important;
+}
+
+body.trainhub-app :is(.danger-outline-btn, .danger-action, .danger-btn, .remove-category-btn, .remove-question-btn, .session-remove-btn, .danger-inline-btn):hover:not(:disabled) {
+    background: var(--app-danger-soft) !important;
+    color: #b91c1c !important;
+}
+
+/* =========================================================
+   FORMS + FILTERS
+========================================================= */
+
+body.trainhub-app :is(input[type="text"], input[type="search"], input[type="email"], input[type="password"], input[type="date"], input[type="time"], input[type="number"], input[type="url"], input[type="file"], select, textarea) {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px !important;
+    padding: 9px 12px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-control) !important;
+    background: var(--app-surface) !important;
+    color: var(--app-text-secondary) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    transition: border-color .15s ease, box-shadow .15s ease !important;
+}
+
+body.trainhub-app textarea {
+    min-height: 96px !important;
+    resize: vertical;
+}
+
+body.trainhub-app :is(input, select, textarea):focus {
+    outline: 0 !important;
+    border-color: var(--app-primary-border) !important;
+    box-shadow: 0 0 0 3px var(--app-input-focus-ring) !important;
+}
+
+body.trainhub-app :is(label, .form-group > label, .field > label) {
+    color: var(--app-text-secondary);
+}
+
+body.trainhub-app :is(.form-group > label, .field > label, .generation-input-block > label) {
+    display: inline-block;
+    margin-bottom: 6px !important;
+    font-size: 11px !important;
+    font-weight: 850 !important;
+    letter-spacing: .06em !important;
+    text-transform: uppercase;
+}
+
+body.trainhub-app :is(.form-help, .field-error, small.field-error) {
+    font-size: 11px !important;
+    line-height: 1.5;
+}
+
+body.trainhub-app :is(.filter-form, .course-filters, .trainer-filters, .list-toolbar, .participant-filter-toolbar, .certificate-history-filter, .certificate-filter-grid, .form-list-toolbar) {
+    gap: 10px !important;
+}
+
+body.trainhub-app :is(.filter-search, .list-search-box, .certificate-search-field, .form-list-search) {
+    min-width: min(100%, 220px);
+}
+
+/* =========================================================
+   CARDS / PANELS
+========================================================= */
+
+body.trainhub-app :is(
+    .panel,
+    .side-panel,
+    .cert-panel,
+    .profile-panel,
+    .settings-main > .panel,
+    .answer-card,
+    .created-form-card,
+    .builder-section-card,
+    .category-builder-card,
+    .question-builder-card,
+    .participant-tracker-card,
+    .generation-extra-card,
+    .session-manage-card,
+    .session-block,
+    .detail-box,
+    .table-field-box
+) {
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-card) !important;
+    background: var(--app-surface) !important;
+    box-shadow: var(--app-shadow-card) !important;
+}
+
+body.trainhub-app :is(.panel, .side-panel, .cert-panel, .profile-panel) {
+    overflow: hidden;
+}
+
+body.trainhub-app :is(.panel-header, .page-panel-header, .side-header) {
+    min-height: 58px;
+    padding: 15px 20px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+    background: var(--app-surface) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    flex-wrap: wrap;
+}
+
+body.trainhub-app :is(.panel-header, .page-panel-header, .side-header) h2,
+body.trainhub-app .panel-title h2,
+body.trainhub-app .panel-title > h2 {
+    margin: 0 !important;
+    color: var(--app-text) !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    letter-spacing: -.02em !important;
+}
+
+body.trainhub-app :is(.panel-header, .page-panel-header, .side-header) p,
+body.trainhub-app .panel-title p,
+body.trainhub-app .panel-subtitle {
+    margin: 3px 0 0 !important;
+    color: var(--app-text-muted) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.5 !important;
+}
+
+body.trainhub-app .panel-title {
+    display: flex !important;
+    align-items: center !important;
+    gap: 11px !important;
+    min-width: 0;
+}
+
+body.trainhub-app .panel-title-icon {
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px;
+    border: 1px solid var(--app-primary-border) !important;
+    border-radius: 10px !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+    display: grid !important;
+    place-items: center !important;
+}
+
+body.trainhub-app .panel-title-icon svg {
+    width: 18px !important;
+    height: 18px !important;
+}
+
+body.trainhub-app :is(.page-panel-body, .cert-panel:not(.full-panel), .settings-main .panel > form, .settings-main .panel > .settings-form) {
+    padding: 20px;
+}
+
+/* =========================================================
+   KPI / STAT CARDS
+========================================================= */
+
+body.trainhub-app .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: clamp(12px, 1vw, 18px) !important;
+    margin: 0 0 20px !important;
+}
+
+body.trainhub-app .stat-card {
+    min-width: 0;
+    min-height: 126px !important;
+    padding: 16px 17px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-card) !important;
+    background: var(--app-surface) !important;
+    box-shadow: var(--app-shadow-card) !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease !important;
+}
+
+@media (hover:hover) {
+    body.trainhub-app .stat-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--app-primary-border) !important;
+        box-shadow: var(--app-shadow-raised) !important;
+    }
+}
+
+body.trainhub-app .stat-card > div:last-child {
+    min-width: 0;
+    align-self: center;
+}
+
+body.trainhub-app .stat-card span {
+    display: block;
+    margin-bottom: 7px !important;
+    color: var(--app-text-muted) !important;
+    font-size: 10.5px !important;
+    font-weight: 850 !important;
+    letter-spacing: .06em !important;
+    text-transform: uppercase;
+}
+
+body.trainhub-app .stat-card h2 {
+    margin: 0 !important;
+    color: var(--app-text) !important;
+    font-size: 27px !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    letter-spacing: -.035em !important;
+}
+
+body.trainhub-app .stat-icon {
+    width: 42px !important;
+    height: 42px !important;
+    flex: 0 0 42px;
+    border-radius: 11px !important;
+    display: grid !important;
+    place-items: center !important;
+}
+
+body.trainhub-app .stat-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+body.trainhub-app .stat-blue {
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+}
+
+body.trainhub-app .stat-green {
+    background: var(--app-success-soft) !important;
+    color: var(--app-success) !important;
+}
+
+body.trainhub-app .stat-orange {
+    background: var(--app-warning-soft) !important;
+    color: var(--app-warning) !important;
+}
+
+body.trainhub-app .stat-purple {
+    background: var(--app-indigo-soft) !important;
+    color: var(--app-indigo) !important;
+}
+
+/* =========================================================
+   TABLES / LISTS
+========================================================= */
+
+body.trainhub-app :is(.table-wrap, .audit-table-wrap, .compact-response-table-wrap, .certificate-session-table-wrap) {
+    max-width: 100%;
+    overflow-x: auto !important;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+body.trainhub-app table {
+    width: 100%;
+    border-collapse: collapse !important;
+    margin: 0 !important;
+    color: var(--app-text-secondary) !important;
+}
+
+body.trainhub-app table thead th {
+    padding: 11px 14px !important;
+    border-bottom: 1px solid var(--app-border) !important;
+    background: var(--app-background) !important;
+    color: var(--app-text-muted) !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    letter-spacing: .075em !important;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-align: left;
+}
+
+body.trainhub-app table tbody td {
+    padding: 12px 14px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+    background: transparent !important;
+    color: var(--app-text-secondary) !important;
+    font-size: 12.5px !important;
+    vertical-align: middle !important;
+}
+
+body.trainhub-app table tbody tr {
+    transition: background .12s ease;
+}
+
+body.trainhub-app table tbody tr:hover {
+    background: var(--app-background) !important;
+}
+
+body.trainhub-app table tbody tr:last-child td {
+    border-bottom: 0 !important;
+}
+
+body.trainhub-app .training-list-head {
+    padding: 11px 18px !important;
+    border-bottom: 1px solid var(--app-border) !important;
+    background: var(--app-background) !important;
+    color: var(--app-text-muted) !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    letter-spacing: .075em !important;
+    text-transform: uppercase;
+}
+
+body.trainhub-app .training-row-clean {
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+}
+
+body.trainhub-app .training-row-clean:hover {
+    background: var(--app-background) !important;
+}
+
+body.trainhub-app :is(.training-title-clean strong, .trainer-name-cell strong, .course-name-cell strong) {
+    color: var(--app-text) !important;
+    font-weight: 750 !important;
+}
+
+body.trainhub-app :is(.training-title-clean span, .contact-cell small) {
+    color: var(--app-text-muted) !important;
+}
+
+/* =========================================================
+   BADGES / STATUS
+========================================================= */
+
+body.trainhub-app :is(
+    .status-badge,
+    .category-badge,
+    .attendance-pill,
+    .teacher-status-pill,
+    .invitation-badge,
+    .download-status-pill,
+    .email-status-pill,
+    .session-code-pill,
+    .locked-form-badge,
+    .editable-form-badge,
+    .replace-badge,
+    .original-badge
+) {
+    min-height: 23px !important;
+    padding: 3px 9px !important;
+    border: 1px solid var(--app-primary-border);
+    border-radius: var(--app-radius-pill) !important;
+    background: var(--app-primary-soft);
+    color: var(--app-primary);
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px;
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-shadow: none !important;
+}
+
+body.trainhub-app :is(.status-active, .status-ongoing, .teacher-status-pill.active, .attendance-pill.approved, .email-status-pill.sent, .download-status-pill.downloaded) {
+    border-color: #a7f3d0 !important;
+    background: var(--app-success-soft) !important;
+    color: var(--app-success) !important;
+}
+
+body.trainhub-app :is(.status-upcoming, .attendance-pill.scanned) {
+    border-color: var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+}
+
+body.trainhub-app :is(.status-completed, .status-past) {
+    border-color: var(--app-border-strong) !important;
+    background: #f8fafc !important;
+    color: var(--app-text-muted) !important;
+}
+
+body.trainhub-app :is(.attendance-pill.not-approved, .attendance-pill.not-scanned, .teacher-status-pill.inactive) {
+    border-color: #fde68a !important;
+    background: var(--app-warning-soft) !important;
+    color: var(--app-warning) !important;
+}
+
+/* =========================================================
+   TABS
+========================================================= */
+
+body.trainhub-app :is(.teacher-tabs, .feedback-workspace-tabs, .cert-workspace-tabs) {
+    min-height: 55px !important;
+    margin: 0 0 18px !important;
+    padding: 0 16px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-card) !important;
+    background: var(--app-surface) !important;
+    box-shadow: var(--app-shadow-card) !important;
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 22px !important;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+body.trainhub-app :is(.teacher-tab-button, .feedback-workspace-tab, .cert-workspace-tab) {
+    position: relative;
+    min-height: 54px !important;
+    padding: 0 2px !important;
+    border: 0 !important;
+    border-bottom: 2.5px solid transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--app-text-muted) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    flex: 0 0 auto;
+    font-size: 13px !important;
+    font-weight: 650 !important;
+    white-space: nowrap;
+    box-shadow: none !important;
+    cursor: pointer;
+}
+
+body.trainhub-app :is(.teacher-tab-button, .feedback-workspace-tab, .cert-workspace-tab):hover {
+    color: var(--app-text) !important;
+}
+
+body.trainhub-app :is(.teacher-tab-button.active, .feedback-workspace-tab.active, .cert-workspace-tab.active) {
+    border-bottom-color: var(--app-primary) !important;
+    color: var(--app-primary) !important;
+    font-weight: 800 !important;
+}
+
+/* =========================================================
+   PAGINATION + EMPTY STATES
+========================================================= */
+
+body.trainhub-app .pagination,
+body.trainhub-app .audit-footer,
+body.trainhub-app .table-footer {
+    min-height: 52px;
+    padding: 10px 18px !important;
+    border-top: 1px solid var(--app-divider) !important;
+    background: var(--app-surface) !important;
+}
+
+body.trainhub-app .pagination a,
+body.trainhub-app .pagination span {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 7px 9px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 9px !important;
+    background: var(--app-surface) !important;
+    color: var(--app-text-secondary) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+}
+
+body.trainhub-app .pagination .active,
+body.trainhub-app .pagination a.active {
+    border-color: var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+}
+
+body.trainhub-app .empty-state {
+    min-height: 130px !important;
+    padding: 34px 18px !important;
+    color: var(--app-text-muted) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-direction: column;
+    text-align: center;
+    font-size: 12.5px !important;
+    font-weight: 650 !important;
+    line-height: 1.5 !important;
+}
+
+/* =========================================================
+   MODALS / POPUPS
+========================================================= */
+
+body.trainhub-app :is(
+    .modal,
+    .app-modal-overlay,
+    .certificate-list-modal-overlay,
+    .confirm-popup-backdrop,
+    .delete-confirm-backdrop,
+    .flash-popup-backdrop,
+    .confirm-modal
+) {
+    backdrop-filter: blur(2px);
+}
+
+body.trainhub-app .modal {
+    background: rgba(15, 23, 42, .60) !important;
+}
+
+body.trainhub-app :is(
+    .modal-content,
+    .modal-box,
+    .app-modal-box,
+    .certificate-list-modal-box,
+    .confirm-popup,
+    .delete-confirm-box,
+    .flash-popup,
+    .confirm-box,
+    .assignment-modal-shell
+) {
+    border: 1px solid var(--app-border) !important;
+    border-radius: 16px !important;
+    background: var(--app-surface) !important;
+    box-shadow: var(--app-shadow-modal) !important;
+}
+
+body.trainhub-app :is(.modal-header, .form-modal-header, .certificate-list-modal-head, .assignment-modal-header) {
+    padding: 14px 20px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+    background: var(--app-surface) !important;
+}
+
+body.trainhub-app :is(.modal-actions, .app-modal-actions, .assignment-modal-actions) {
+    padding: 14px 20px !important;
+    border-top: 1px solid var(--app-divider) !important;
+    background: var(--app-surface) !important;
+}
+
+/* =========================================================
+   ALERTS / SUCCESS / ERROR
+========================================================= */
+
+body.trainhub-app :is(.alert, .message, .popup-message) {
+    padding: 11px 13px !important;
+    border-radius: 11px !important;
+    font-size: 12.5px !important;
+    font-weight: 750 !important;
+    box-shadow: none !important;
+}
+
+body.trainhub-app :is(.alert-success, .alert.success, .popup-message.success) {
+    border: 1px solid #a7f3d0 !important;
+    background: var(--app-success-soft) !important;
+    color: #047857 !important;
+}
+
+body.trainhub-app :is(.alert-danger, .alert.error, .popup-message.error) {
+    border: 1px solid #fecaca !important;
+    background: var(--app-danger-soft) !important;
+    color: #b91c1c !important;
+}
+
+/* =========================================================
+   DASHBOARD — close to supplied trainer dashboard
+========================================================= */
+
+body.page-dashboard .content-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 2.05fr) minmax(330px, .95fr) !important;
+    gap: 20px !important;
+    align-items: start !important;
+}
+
+body.page-dashboard :is(.left-content, .right-content) {
+    min-width: 0;
+}
+
+body.page-dashboard .left-content,
+body.page-dashboard .right-content {
+    display: grid !important;
+    gap: 20px !important;
+}
+
+body.page-dashboard .left-content .stats-grid {
+    margin-bottom: 0 !important;
+}
+
+body.page-dashboard .training-panel,
+body.page-dashboard .audit-panel,
+body.page-dashboard .side-panel {
+    margin: 0 !important;
+}
+
+body.page-dashboard .panel-header a,
+body.page-dashboard .table-footer-link a,
+body.page-dashboard .side-header a {
+    color: var(--app-primary) !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+}
+
+body.page-dashboard .training-icon-clean {
+    width: 36px !important;
+    height: 36px !important;
+    border: 1px solid var(--app-primary-border) !important;
+    border-radius: 10px !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+}
+
+body.page-dashboard .upcoming-item {
+    padding: 14px 16px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+    background: #fff !important;
+}
+
+body.page-dashboard .upcoming-item:last-child { border-bottom: 0 !important; }
+
+body.page-dashboard .date-box {
+    width: 54px !important;
+    min-width: 54px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    background: #fff !important;
+}
+
+body.page-dashboard .date-box span {
+    background: var(--app-primary) !important;
+    color: #fff !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: .04em;
+}
+
+body.page-dashboard .date-box strong {
+    color: var(--app-text) !important;
+    font-size: 20px !important;
+    font-weight: 850 !important;
+}
+
+body.page-dashboard .credit-chart-wrap {
+    padding: 18px 20px 10px !important;
+}
+
+body.page-dashboard .credit-details {
+    padding: 0 20px 18px !important;
+}
+
+body.page-dashboard .calendar-card {
+    padding-bottom: 12px !important;
+}
+
+body.page-dashboard .calendar-top {
+    padding: 15px 20px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+}
+
+body.page-dashboard #calendar {
+    padding: 12px !important;
+}
+
+/* =========================================================
+   TEACHER / DIRECTORY
+========================================================= */
+
+body.page-teacher .teacher-tabs {
+    margin-bottom: 16px !important;
+}
+
+body.page-teacher .school-panel,
+body.page-teacher .teacher-tab-panel > .panel {
+    margin: 0 !important;
+}
+
+body.page-teacher .course-panel-header {
+    align-items: center !important;
+}
+
+body.page-teacher .course-filters,
+body.page-teacher .list-toolbar {
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+    background: var(--app-background) !important;
+}
+
+body.page-teacher .school-card-grid {
+    padding: 18px !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+}
+
+body.page-teacher .school-modern-card {
+    min-width: 0;
+    padding: 16px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 14px !important;
+    background: #fff !important;
+    color: inherit !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+    transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease !important;
+}
+
+@media (hover:hover) {
+    body.page-teacher .school-modern-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--app-primary-border) !important;
+        box-shadow: var(--app-shadow-raised) !important;
+    }
+}
+
+body.page-teacher .school-avatar,
+body.page-teacher .teacher-avatar {
+    border: 1px solid var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+}
+
+body.page-teacher .teacher-row,
+body.page-teacher .new-teacher-card {
+    border-bottom: 1px solid var(--app-divider) !important;
+    background: #fff !important;
+}
+
+body.page-teacher .teacher-row:hover,
+body.page-teacher .new-teacher-card:hover {
+    background: var(--app-background) !important;
+}
+
+body.page-teacher .selected-school-bar {
+    margin-bottom: 16px !important;
+    border: 1px solid var(--app-primary-border) !important;
+    border-radius: 14px !important;
+    background: var(--app-primary-soft) !important;
+    box-shadow: none !important;
+}
+
+/* =========================================================
+   COURSE / TRAINING DIRECTORY + WORKSPACE
+========================================================= */
+
+body.page-course .panel {
+    margin-bottom: 18px !important;
+}
+
+body.page-course .course-panel-header .course-filters,
+body.page-course .filter-form.course-filters {
+    flex: 1 1 520px;
+    justify-content: flex-end;
+}
+
+body.page-course .course-table {
+    font-size: 12.5px !important;
+}
+
+body.page-course .course-thumb {
+    width: 36px !important;
+    height: 36px !important;
+    border: 1px solid var(--app-primary-border) !important;
+    border-radius: 10px !important;
+    background: var(--app-primary-soft) !important;
+}
+
+body.page-course .page-panel {
+    border-radius: var(--app-radius-panel) !important;
+}
+
+body.page-course .detail-grid {
+    gap: 12px !important;
+}
+
+body.page-course .detail-box {
+    padding: 14px !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    background: var(--app-background) !important;
+}
+
+body.page-course .session-manage-list,
+body.page-course .participant-list {
+    gap: 10px !important;
+}
+
+body.page-course .session-manage-card,
+body.page-course .participant-item {
+    border-radius: 12px !important;
+    box-shadow: none !important;
+}
+
+/* =========================================================
+   TRAINER / DIRECTORY
+========================================================= */
+
+body.page-trainer .trainer-content-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 300px !important;
+    gap: 18px !important;
+    align-items: start !important;
+}
+
+body.page-trainer .trainer-main-content,
+body.page-trainer .top-rated-panel {
+    min-width: 0;
+}
+
+body.page-trainer .trainer-panel-header {
+    align-items: center !important;
+}
+
+body.page-trainer .trainer-filters {
+    flex: 1 1 620px;
+    justify-content: flex-end;
+}
+
+body.page-trainer .trainer-photo,
+body.page-trainer .trainer-photo-fallback,
+body.page-trainer .top-trainer-photo,
+body.page-trainer .trainer-modal-photo {
+    border-color: var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+}
+
+body.page-trainer .expertise-open-btn {
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--app-text-secondary) !important;
+    text-align: left !important;
+    box-shadow: none !important;
+}
+
+body.page-trainer .expertise-open-btn small {
+    color: var(--app-primary) !important;
+}
+
+body.page-trainer .top-rated-panel {
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-card) !important;
+    background: #fff !important;
+    box-shadow: var(--app-shadow-card) !important;
+    overflow: hidden;
+}
+
+body.page-trainer .top-trainer-item {
+    padding: 13px 15px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+}
+
+body.page-trainer .top-trainer-item:last-child { border-bottom: 0 !important; }
+
+/* =========================================================
+   FEEDBACK
+========================================================= */
+
+body.page-feedback .feedback-stats {
+    margin-bottom: 18px !important;
+}
+
+body.page-feedback .feedback-workspace-tabs {
+    margin-bottom: 18px !important;
+}
+
+body.page-feedback .builder-root,
+body.page-feedback .created-form-list,
+body.page-feedback .participant-response-list {
+    gap: 14px !important;
+}
+
+body.page-feedback .builder-section-card,
+body.page-feedback .created-form-card,
+body.page-feedback .participant-tracker-card {
+    box-shadow: none !important;
+}
+
+body.page-feedback .created-form-card {
+    padding: 15px !important;
+}
+
+body.page-feedback .category-builder-card,
+body.page-feedback .question-builder-card {
+    padding: 14px !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+}
+
+body.page-feedback .form-list-toolbar {
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+    background: var(--app-background) !important;
+}
+
+body.page-feedback .category-score-pills > * {
+    border-radius: var(--app-radius-pill) !important;
+}
+
+/* =========================================================
+   CERTIFICATE WORKSPACE
+========================================================= */
+
+body.page-certificate .cert-grid {
+    display: grid !important;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr) !important;
+    gap: 18px !important;
+    align-items: start !important;
+}
+
+body.page-certificate .cert-panel {
+    margin: 0 !important;
+}
+
+body.page-certificate .cert-panel.full-panel {
+    grid-column: 1 / -1;
+}
+
+body.page-certificate .eligible-card,
+body.page-certificate .field-choice-card,
+body.page-certificate .generation-extra-card {
+    border: 1px solid var(--app-border) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: none !important;
+}
+
+body.page-certificate .eligible-card:hover,
+body.page-certificate .field-choice-card:hover {
+    border-color: var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+}
+
+body.page-certificate .template-editor {
+    border: 1px solid var(--app-border) !important;
+    border-radius: 14px !important;
+    background: #f8fafc !important;
+}
+
+body.page-certificate .certificate-course-accordion,
+body.page-certificate .certificate-session-block {
+    border: 1px solid var(--app-border) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+}
+
+body.page-certificate .certificate-course-toggle,
+body.page-certificate .certificate-session-header {
+    background: #fff !important;
+}
+
+body.page-certificate .certificate-course-toggle:hover {
+    background: var(--app-background) !important;
+}
+
+/* =========================================================
+   SETTINGS / PROFILE — close to supplied trainer profile
+========================================================= */
+
+body.page-settings .settings-grid {
+    display: grid !important;
+    grid-template-columns: 280px minmax(0, 1fr) !important;
+    gap: 18px !important;
+    align-items: start !important;
+}
+
+body.page-settings .profile-panel {
+    padding: 20px !important;
+}
+
+body.page-settings .profile-large-avatar {
+    width: 72px !important;
+    height: 72px !important;
+    border: 1px solid var(--app-primary-border) !important;
+    border-radius: 16px !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+    box-shadow: none !important;
+}
+
+body.page-settings .summary-list > div {
+    padding: 12px 0 !important;
+    border-bottom: 1px solid var(--app-divider) !important;
+}
+
+body.page-settings .summary-list > div:last-child { border-bottom: 0 !important; }
+
+body.page-settings .settings-main {
+    display: grid !important;
+    gap: 18px !important;
+}
+
+body.page-settings .settings-main > .panel {
+    margin: 0 !important;
+}
+
+body.page-settings .form-grid {
+    gap: 14px !important;
+}
+
+body.page-settings .field {
+    min-width: 0;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1279.98px) {
+    body.trainhub-app .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    body.page-dashboard .content-grid {
+        grid-template-columns: minmax(0, 1.6fr) minmax(300px, .8fr) !important;
+    }
+
+    body.page-teacher .school-card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    body.page-trainer .trainer-content-grid {
+        grid-template-columns: minmax(0, 1fr) 270px !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    body.page-dashboard .content-grid,
+    body.page-trainer .trainer-content-grid,
+    body.page-settings .settings-grid,
+    body.page-certificate .cert-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    body.page-certificate .cert-panel.full-panel {
+        grid-column: auto;
+    }
+
+    body.page-teacher .school-card-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 767.98px) {
+    :root {
+        --app-page-top-space: 20px;
+        --app-page-gutter: 16px;
+        --app-page-bottom-space: 44px;
+    }
+
+    body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) {
+        align-items: flex-start !important;
+    }
+
+    body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) h1 {
+        font-size: 21px !important;
+    }
+
+    body.trainhub-app .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    body.trainhub-app .stat-card {
+        min-height: 104px !important;
+    }
+
+    body.trainhub-app :is(.filter-form, .course-filters, .trainer-filters, .list-toolbar, .participant-filter-toolbar, .certificate-filter-grid) {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+    }
+
+    body.trainhub-app :is(.filter-search, .list-search-box, .certificate-search-field) {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    body.trainhub-app :is(.teacher-tabs, .feedback-workspace-tabs, .cert-workspace-tabs) {
+        padding-inline: 12px !important;
+        gap: 18px !important;
+    }
+
+    body.page-dashboard .training-list-head {
+        display: none !important;
+    }
+
+    body.page-dashboard .training-row-clean {
+        grid-template-columns: 1fr !important;
+        gap: 9px !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    :root { --app-page-gutter: 12px; }
+
+    body.trainhub-app .panel-header,
+    body.trainhub-app .page-panel-header {
+        padding-inline: 16px !important;
+    }
+
+    body.trainhub-app table thead th,
+    body.trainhub-app table tbody td {
+        padding-inline: 11px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.trainhub-app *,
+    body.trainhub-app *::before,
+    body.trainhub-app *::after {
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* =========================================================
+   TRAINHUB UI V3 — FINAL POLISH PASS
+   September 2026
+   Purpose: consistent icon scale, button hierarchy, alignment,
+   responsive spacing and page-specific composition.
+========================================================= */
+
+/* Hidden must always win over visual component display rules. */
+body.trainhub-app [hidden] {
+    display: none !important;
+}
+
+/* ---------- Page rhythm ---------- */
+body.trainhub-app > .page,
+body.trainhub-app .cert-page,
+body.trainhub-app main.page {
+    width: min(100%, 1600px) !important;
+    max-width: 1600px !important;
+    padding-top: clamp(24px, 2.4vw, 34px) !important;
+}
+
+body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) {
+    align-items: center !important;
+    margin-bottom: 22px !important;
+}
+
+body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) h1 {
+    font-size: clamp(24px, 2vw, 29px) !important;
+    line-height: 1.2 !important;
+}
+
+/* ---------- Button system ---------- */
+body.trainhub-app :is(
+    .primary-link-button,
+    .always-visible-add-category,
+    .submit-answer-btn,
+    .trainer-assign-btn,
+    .trainer-add-page-btn,
+    .compact-update-btn,
+    .school-tab-search-btn,
+    .send-selected-btn
+) {
+    min-height: 40px !important;
+    padding: 9px 16px !important;
+    border: 1px solid transparent !important;
+    border-radius: 10px !important;
+    background: var(--app-primary) !important;
+    color: #fff !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    font-size: 12.5px !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    text-decoration: none !important;
+    box-shadow: 0 5px 14px rgba(37, 99, 235, .16) !important;
+    cursor: pointer;
+}
+
+body.trainhub-app :is(
+    .primary-link-button,
+    .always-visible-add-category,
+    .submit-answer-btn,
+    .trainer-assign-btn,
+    .trainer-add-page-btn,
+    .compact-update-btn,
+    .school-tab-search-btn,
+    .send-selected-btn
+):hover:not(:disabled) {
+    background: var(--app-primary-dark) !important;
+}
+
+body.trainhub-app :is(
+    .assign-toggle-btn,
+    .certificate-course-toggle,
+    .expertise-open-btn,
+    .detail-toggle-btn,
+    .school-tab-reset-btn,
+    .session-tab-btn,
+    .cancel-modal-btn,
+    .duplicate-inline-btn,
+    .compact-action
+) {
+    min-height: 36px !important;
+    padding: 8px 12px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 9px !important;
+    background: #fff !important;
+    color: var(--app-text-secondary) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    font-size: 12px !important;
+    font-weight: 750 !important;
+    line-height: 1.2 !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+    cursor: pointer;
+}
+
+body.trainhub-app :is(
+    .assign-toggle-btn,
+    .certificate-course-toggle,
+    .expertise-open-btn,
+    .detail-toggle-btn,
+    .school-tab-reset-btn,
+    .session-tab-btn,
+    .cancel-modal-btn,
+    .duplicate-inline-btn,
+    .compact-action
+):hover:not(:disabled) {
+    border-color: var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary-dark) !important;
+}
+
+body.trainhub-app :is(.delete-invitation-btn, .danger-inline-btn, .danger-action, .danger-btn) {
+    min-height: 36px !important;
+    border: 1px solid #fecaca !important;
+    border-radius: 9px !important;
+    background: #fff !important;
+    color: var(--app-danger) !important;
+    font-weight: 800 !important;
+}
+
+body.trainhub-app :is(button, a)[disabled],
+body.trainhub-app button:disabled,
+body.trainhub-app .disabled-approve-btn {
+    opacity: .55 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+/* Standard icon geometry inside controls. */
+body.trainhub-app :is(button, a) > svg,
+body.trainhub-app :is(.primary-btn, .secondary-btn, .action-btn, .inline-action-btn) svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 18px;
+}
+
+body.trainhub-app .primary-btn > span:first-child:not(:only-child) {
+    font-size: 18px !important;
+    line-height: 1 !important;
+}
+
+/* Close controls should be obvious, not tiny. */
+body.trainhub-app :is(.close-btn, .certificate-list-modal-close, .assignment-modal-close, .response-detail-close) {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    color: var(--app-text-muted) !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    font-size: 22px !important;
+    line-height: 1 !important;
+}
+
+body.trainhub-app :is(.close-btn, .certificate-list-modal-close, .assignment-modal-close, .response-detail-close):hover {
+    border-color: #fecaca !important;
+    background: var(--app-danger-soft) !important;
+    color: var(--app-danger) !important;
+}
+
+/* ---------- Icon scale ---------- */
+body.trainhub-app .panel-title-icon {
+    width: 42px !important;
+    height: 42px !important;
+    flex-basis: 42px !important;
+}
+
+body.trainhub-app .panel-title-icon svg {
+    width: 21px !important;
+    height: 21px !important;
+}
+
+body.trainhub-app .stat-icon {
+    width: 46px !important;
+    height: 46px !important;
+    flex-basis: 46px !important;
+    border-radius: 12px !important;
+}
+
+body.trainhub-app .stat-icon svg {
+    width: 23px !important;
+    height: 23px !important;
+}
+
+body.trainhub-app .action-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+}
+
+body.trainhub-app .action-btn svg {
+    width: 18.5px !important;
+    height: 18.5px !important;
+}
+
+body.trainhub-app :is(.side-icon, .summary-icon, .calendar-nav-btn) svg {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+/* ---------- Text alignment / readable wrapping ---------- */
+body.trainhub-app :is(.panel-header, .panel-title, .side-title, .stat-card, .table-footer, .form-actions) {
+    min-width: 0;
+}
+
+body.trainhub-app table th,
+body.trainhub-app table td {
+    vertical-align: middle !important;
+    line-height: 1.4 !important;
+}
+
+body.trainhub-app table th {
+    white-space: nowrap;
+}
+
+body.trainhub-app table td :is(strong, span, small, p) {
+    overflow-wrap: anywhere;
+}
+
+body.trainhub-app .action-group {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+}
+
+body.trainhub-app .action-group form {
+    margin: 0 !important;
+    display: inline-flex !important;
+}
+
+body.trainhub-app :is(.table-footer, .pagination) {
+    align-items: center !important;
+}
+
+body.trainhub-app .table-footer {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    flex-wrap: wrap;
+    color: var(--app-text-muted) !important;
+    font-size: 12px !important;
+    font-weight: 650 !important;
+}
+
+/* ---------- Search / filter toolbar ---------- */
+body.trainhub-app :is(.filter-form, .trainer-filters, .course-filters, .form-list-toolbar, .certificate-history-filter) {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+}
+
+body.trainhub-app .filter-search {
+    position: relative;
+    min-width: 240px !important;
+    flex: 1 1 260px;
+}
+
+body.trainhub-app .filter-search input {
+    padding-right: 44px !important;
+}
+
+body.trainhub-app .filter-search > button {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: var(--app-text-muted) !important;
+    display: grid !important;
+    place-items: center !important;
+    box-shadow: none !important;
+}
+
+body.trainhub-app .filter-search > button:hover {
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+}
+
+body.trainhub-app .filter-search > button svg {
+    width: 18px !important;
+    height: 18px !important;
+}
+
+/* ---------- Cards ---------- */
+body.trainhub-app .stat-card {
+    min-height: 118px !important;
+    align-items: center !important;
+    padding: 18px !important;
+}
+
+body.trainhub-app .stat-card span {
+    margin-bottom: 6px !important;
+    font-size: 10.5px !important;
+}
+
+body.trainhub-app .stat-card h2 {
+    font-size: 28px !important;
+}
+
+body.trainhub-app :is(.panel, .side-panel, .cert-panel, .profile-panel) {
+    box-shadow: 0 4px 16px rgba(15,23,42,.045) !important;
+}
+
+/* =========================================================
+   TRAINER PAGE — improved composition
+========================================================= */
+body.page-trainer .trainer-content-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+        "rated"
+        "main" !important;
+    gap: 18px !important;
+}
+
+body.page-trainer .trainer-main-content {
+    grid-area: main;
+    width: 100%;
+    min-width: 0;
+}
+
+body.page-trainer .top-rated-panel {
+    grid-area: rated;
+    order: initial !important;
+    width: 100% !important;
+    padding: 0 !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 16px !important;
+    background: #fff !important;
+    box-shadow: 0 4px 16px rgba(15,23,42,.045) !important;
+    overflow: hidden;
+}
+
+body.page-trainer .top-rated-panel .side-panel-header {
+    min-height: 58px;
+    margin: 0 !important;
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--app-divider);
+    display: flex;
+    align-items: center;
+}
+
+body.page-trainer .top-rated-panel .side-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+body.page-trainer .top-rated-panel .side-icon {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    background: var(--app-warning-soft) !important;
+    color: var(--app-warning) !important;
+    display: grid !important;
+    place-items: center !important;
+}
+
+body.page-trainer .top-rated-panel .side-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+body.page-trainer .top-rated-panel h3 {
+    margin: 0 !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: var(--app-text) !important;
+}
+
+body.page-trainer .top-trainer-list {
+    padding: 14px !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+}
+
+body.page-trainer .top-trainer-item {
+    min-height: 82px;
+    padding: 12px 13px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 13px !important;
+    background: #fff !important;
+    display: grid !important;
+    grid-template-columns: 28px 46px minmax(0,1fr) auto !important;
+    align-items: center !important;
+    gap: 11px !important;
+}
+
+body.page-trainer .top-trainer-item:hover {
+    border-color: var(--app-primary-border) !important;
+    background: var(--app-primary-soft) !important;
+}
+
+body.page-trainer .top-trainer-info {
+    min-width: 0;
+}
+
+body.page-trainer .top-trainer-info strong,
+body.page-trainer .top-trainer-info span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.page-trainer .top-trainer-info strong {
+    margin-bottom: 4px;
+    font-size: 13px !important;
+    color: var(--app-text) !important;
+}
+
+body.page-trainer .top-trainer-info span {
+    color: var(--app-text-muted) !important;
+    font-size: 11px !important;
+}
+
+body.page-trainer .top-rating {
+    min-width: 70px;
+    text-align: right;
+}
+
+body.page-trainer .trainer-panel-header {
+    padding: 17px 18px 14px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+}
+
+body.page-trainer .trainer-panel-header .panel-title {
+    min-height: 28px;
+}
+
+body.page-trainer .trainer-filters {
+    width: 100% !important;
+    padding-top: 13px;
+    border-top: 1px solid var(--app-divider);
+}
+
+body.page-trainer .trainer-filters select {
+    width: auto !important;
+    min-width: 150px !important;
+    flex: 0 1 185px;
+}
+
+body.page-trainer .trainer-table th,
+body.page-trainer .trainer-table td {
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
+}
+
+body.page-trainer .trainer-name-cell {
+    min-width: 180px;
+}
+
+body.page-trainer .trainer-photo,
+body.page-trainer .trainer-photo img,
+body.page-trainer .trainer-photo-fallback {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+}
+
+body.page-trainer .expertise-open-btn {
+    width: 100% !important;
+    max-width: 250px;
+    min-height: 48px !important;
+    padding: 8px 10px !important;
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    text-align: left !important;
+}
+
+body.page-trainer .expertise-open-btn span {
+    color: var(--app-text-secondary) !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+}
+
+body.page-trainer .expertise-open-btn small {
+    color: var(--app-text-subtle) !important;
+    font-size: 10px !important;
+}
+
+body.page-trainer .contact-cell {
+    min-width: 180px;
+}
+
+body.page-trainer .contact-cell span,
+body.page-trainer .contact-cell small {
+    display: block;
+    line-height: 1.45;
+}
+
+body.page-trainer .contact-cell span {
+    color: var(--app-text-secondary) !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+}
+
+body.page-trainer .contact-cell small {
+    margin-top: 3px;
+    color: var(--app-text-muted) !important;
+    font-size: 11px !important;
+}
+
+body.page-trainer .trainer-list-invitation-cell {
+    min-width: 120px !important;
+    align-content: center;
+}
+
+body.page-trainer .trainer-payment-invitation-table {
+    min-width: 1120px !important;
+}
+
+/* =========================================================
+   SETTINGS PAGE — profile-first composition
+========================================================= */
+body.page-settings .settings-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) !important;
+    gap: 18px !important;
+}
+
+body.page-settings .profile-panel {
+    padding: 20px !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(180px, .75fr) minmax(0, 2.25fr) !important;
+    align-items: center !important;
+    gap: 18px !important;
+    text-align: left !important;
+    overflow: visible !important;
+}
+
+body.page-settings .profile-large-avatar {
+    width: 78px !important;
+    height: 78px !important;
+    margin: 0 !important;
+    border: 1px solid var(--app-primary-border) !important;
+    border-radius: 20px !important;
+    background: var(--app-primary-soft) !important;
+    color: var(--app-primary) !important;
+    display: grid !important;
+    place-items: center !important;
+    font-size: 29px !important;
+    font-weight: 850 !important;
+}
+
+body.page-settings .profile-panel > h2,
+body.page-settings .profile-panel > p,
+body.page-settings .profile-panel > .profile-status {
+    grid-column: 2;
+}
+
+body.page-settings .profile-panel > h2 {
+    align-self: end;
+    margin: 0 !important;
+    font-size: 18px !important;
+    font-weight: 850 !important;
+    color: var(--app-text) !important;
+}
+
+body.page-settings .profile-panel > p {
+    align-self: center;
+    margin: -11px 0 0 !important;
+    color: var(--app-text-muted) !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+}
+
+body.page-settings .profile-panel > .profile-status {
+    width: fit-content;
+    align-self: start;
+    margin: -7px 0 0 !important;
+}
+
+body.page-settings .summary-list {
+    grid-column: 3;
+    grid-row: 1 / span 3;
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0,1fr)) !important;
+    gap: 9px !important;
+}
+
+body.page-settings .summary-list > div {
+    min-width: 0;
+    min-height: 72px;
+    padding: 11px 12px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 11px !important;
+    background: var(--app-background) !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+body.page-settings .summary-list span {
+    margin-bottom: 5px !important;
+    color: var(--app-text-muted) !important;
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+    letter-spacing: .05em !important;
+}
+
+body.page-settings .summary-list strong {
+    color: var(--app-text) !important;
+    font-size: 12.5px !important;
+    font-weight: 800 !important;
+    overflow-wrap: anywhere;
+}
+
+body.page-settings .settings-main {
+    display: grid !important;
+    grid-template-columns: minmax(0, 2fr) minmax(320px, .9fr) !important;
+    gap: 18px !important;
+    align-items: start !important;
+}
+
+body.page-settings .settings-main > .panel {
+    min-width: 0;
+}
+
+body.page-settings .settings-main > .panel:nth-child(2) {
+    position: sticky;
+    top: 78px;
+}
+
+body.page-settings .settings-main .panel-header {
+    min-height: 66px !important;
+    padding: 16px 19px !important;
+}
+
+body.page-settings .settings-main .panel-header h2 {
+    font-size: 15.5px !important;
+}
+
+body.page-settings .settings-form {
+    padding: 20px !important;
+}
+
+body.page-settings .form-grid {
+    gap: 14px !important;
+}
+
+body.page-settings .settings-main > .panel:nth-child(2) .form-grid {
+    grid-template-columns: 1fr !important;
+}
+
+body.page-settings .field label {
+    min-height: 16px;
+}
+
+body.page-settings .form-actions {
+    padding-top: 17px;
+    margin-top: 18px !important;
+    border-top: 1px solid var(--app-divider);
+}
+
+body.page-settings .form-actions .primary-btn {
+    min-width: 138px;
+}
+
+/* =========================================================
+   RESPONSIVE POLISH
+========================================================= */
+@media (max-width: 1180px) {
+    body.page-trainer .top-trainer-list {
+        grid-template-columns: 1fr !important;
+    }
+
+    body.page-settings .profile-panel {
+        grid-template-columns: auto minmax(0,1fr) !important;
+    }
+
+    body.page-settings .summary-list {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+        grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+    }
+
+    body.page-settings .settings-main {
+        grid-template-columns: minmax(0,1fr) !important;
+    }
+
+    body.page-settings .settings-main > .panel:nth-child(2) {
+        position: static;
+    }
+}
+
+@media (max-width: 900px) {
+    body.trainhub-app .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    body.page-trainer .trainer-filters select {
+        flex: 1 1 180px;
+    }
+}
+
+@media (max-width: 700px) {
+    body.trainhub-app > .page,
+    body.trainhub-app .cert-page,
+    body.trainhub-app main.page {
+        padding-inline: 14px !important;
+    }
+
+    body.trainhub-app .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    body.trainhub-app .stat-card {
+        min-height: 96px !important;
+    }
+
+    body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) {
+        align-items: stretch !important;
+    }
+
+    body.trainhub-app :is(.dashboard-header, .feedback-page-header, .cert-header, .settings-header) > .primary-btn {
+        width: 100%;
+    }
+
+    body.page-settings .profile-panel {
+        grid-template-columns: 64px minmax(0,1fr) !important;
+        gap: 13px !important;
+    }
+
+    body.page-settings .profile-large-avatar {
+        width: 64px !important;
+        height: 64px !important;
+        border-radius: 16px !important;
+        font-size: 24px !important;
+    }
+
+    body.page-settings .summary-list {
+        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    }
+
+    body.page-trainer .top-trainer-item {
+        grid-template-columns: 28px 44px minmax(0,1fr) !important;
+    }
+
+    body.page-trainer .top-rating {
+        grid-column: 3;
+        text-align: left !important;
+    }
+}
+
+@media (max-width: 480px) {
+    body.page-settings .summary-list {
+        grid-template-columns: 1fr !important;
+    }
+
+    body.trainhub-app .table-footer {
+        align-items: stretch !important;
+    }
+}
+
+/* Settings identity wrapper and section-heading icons. */
+body.page-settings .profile-identity {
+    min-width: 0;
+    align-self: center;
+}
+
+body.page-settings .profile-identity h2 {
+    margin: 0 !important;
+    color: var(--app-text) !important;
+    font-size: 19px !important;
+    font-weight: 850 !important;
+    line-height: 1.25 !important;
+    letter-spacing: -.025em !important;
+    overflow-wrap: anywhere;
+}
+
+body.page-settings .profile-identity p {
+    margin: 5px 0 10px !important;
+    color: var(--app-text-muted) !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+}
+
+body.page-settings .profile-identity .profile-status {
+    margin: 0 !important;
+}
+
+body.page-settings .settings-section-title {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+body.page-settings .settings-section-icon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border: 1px solid var(--app-primary-border);
+    border-radius: 10px;
+    background: var(--app-primary-soft);
+    color: var(--app-primary);
+    display: grid;
+    place-items: center;
+}
+
+body.page-settings .settings-section-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+}
+
+@media (max-width: 1180px) {
+    body.page-settings .profile-identity {
+        grid-column: 2;
+    }
+}
+
+body.page-trainer .top-rated-empty {
+    grid-column: 1 / -1;
+    min-height: 70px;
+    padding: 18px;
+    border: 1px dashed var(--app-border-strong);
+    border-radius: 12px;
+    background: var(--app-background);
+    color: var(--app-text-muted);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* =====================================================================
+   TRAINHUB FINAL STANDARDIZATION PASS — 2026-09-06
+   One consistent interaction + visual system across signed-in pages.
+===================================================================== */
+
+/* Never allow a hidden empty state to be made visible by display rules. */
+body.trainhub-app [hidden] { display: none !important; }
+
+/* -------------------------
+   STANDARD FILTER TOOLBARS
+------------------------- */
+body.trainhub-app :is(
+    .filter-form,
+    .course-filters,
+    .trainer-filters,
+    .school-search-form,
+    .list-toolbar,
+    .form-list-toolbar,
+    .participant-filter-toolbar,
+    .certificate-filter-grid,
+    .audit-filter,
+    .credit-year-filter
+) {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+}
+
+body.trainhub-app :is(.course-panel-header,.trainer-panel-header) {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+}
+
+body.trainhub-app :is(
+    .filter-search,
+    .list-search-box,
+    .form-list-search,
+    .certificate-search-field
+) {
+    flex: 1 1 320px !important;
+    min-width: 240px !important;
+    max-width: 460px !important;
+}
+
+body.trainhub-app :is(
+    .filter-form select,
+    .course-filters select,
+    .trainer-filters select,
+    .list-filter-select,
+    .form-list-filter,
+    .participant-filter-toolbar select,
+    .certificate-filter-grid select,
+    .audit-filter input,
+    .credit-year-filter select
+) {
+    flex: 0 0 auto !important;
+    min-width: 145px !important;
+    height: 40px !important;
+}
+
+body.trainhub-app :is(
+    .filter-search input,
+    .list-search-box input,
+    .form-list-search input,
+    .certificate-search-field input
+) {
+    height: 40px !important;
+}
+
+/* Remove the tiny embedded search-submit icon buttons from course/trainer.
+   The single visible Filter button is now the standard action. */
+body.page-course .course-filters .filter-search > button,
+body.page-trainer .trainer-filters .filter-search > button {
+    display: none !important;
+}
+
+body.trainhub-app :is(
+    .filter-submit-btn,
+    .filter-btn,
+    .list-filter-btn,
+    .participant-filter-btn,
+    #applyCertificateFilter,
+    .audit-filter button,
+    .credit-year-filter button
+) {
+    min-width: 82px !important;
+    height: 40px !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: #2563eb !important;
+    color: #fff !important;
+    padding: 0 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+}
+
+body.trainhub-app :is(
+    .reset-filter,
+    .list-reset-btn,
+    .participant-reset-btn,
+    #resetCertificateFilter
+) {
+    min-width: 78px !important;
+    height: 40px !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: #475569 !important;
+    color: #fff !important;
+    padding: 0 15px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+}
+
+body.trainhub-app :is(
+    .filter-submit-btn,
+    .filter-btn,
+    .list-filter-btn,
+    .participant-filter-btn,
+    #applyCertificateFilter,
+    .audit-filter button,
+    .credit-year-filter button
+):hover { background: #2563EB !important; }
+
+body.trainhub-app :is(
+    .reset-filter,
+    .list-reset-btn,
+    .participant-reset-btn,
+    #resetCertificateFilter
+):hover { background: #334155 !important; }
+
+/* -------------------------
+   SOLID BUTTON HIERARCHY
+------------------------- */
+body.trainhub-app :is(
+    .primary-btn,
+    .save-btn,
+    .submit-btn,
+    .save-feedback-btn,
+    .submit-answer-btn,
+    .add-session-btn,
+    .trainer-assign-btn,
+    .add-category-btn,
+    .add-question-btn,
+    .approve-btn
+) {
+    border-color: #2563eb !important;
+    background: #2563eb !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+body.trainhub-app :is(
+    .secondary-btn,
+    .secondary-action-btn,
+    .back-link-btn,
+    .secondary-back-btn,
+    .cancel-btn,
+    .modal-cancel-btn,
+    .mini-secondary-btn,
+    .session-qr-link,
+    .trainer-add-page-btn,
+    .current-file-link
+) {
+    border-color: #2563EB !important;
+    background: #2563EB !important;
+    color: #fff !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+}
+
+body.trainhub-app :is(
+    .secondary-btn,
+    .secondary-action-btn,
+    .back-link-btn,
+    .secondary-back-btn,
+    .cancel-btn,
+    .modal-cancel-btn,
+    .mini-secondary-btn,
+    .session-qr-link,
+    .trainer-add-page-btn,
+    .current-file-link
+):hover { background: #2563EB !important; color:#fff !important; }
+
+body.trainhub-app :is(
+    .delete-btn,
+    .danger-btn,
+    .danger-inline-btn,
+    .delete-invitation-btn,
+    .not-approve-btn,
+    .remove-category-btn,
+    .remove-question-btn
+) {
+    border-color: #dc2626 !important;
+    background: #dc2626 !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+body.trainhub-app :is(.inline-action-btn,.primary-actions-row a,.copy-link-box button) {
+    min-height: 38px !important;
+    border: 0 !important;
+    border-radius: 9px !important;
+    padding: 0 13px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #2563eb !important;
+    color: #fff !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+}
+
+body.page-feedback .duplicate-inline-btn {
+    min-width: 94px !important;
+    min-height: 38px !important;
+    padding-inline: 13px !important;
+    background: #0f766e !important;
+    color: #fff !important;
+}
+
+/* -------------------------
+   STATUS BADGES — SOLID, EASY TO READ
+------------------------- */
+body.trainhub-app .status-badge.status-upcoming,
+body.trainhub-app .status-upcoming { background:#2563eb !important; color:#fff !important; border-color:#2563eb !important; }
+body.trainhub-app .status-badge.status-ongoing,
+body.trainhub-app .status-ongoing { background:#d97706 !important; color:#fff !important; border-color:#d97706 !important; }
+body.trainhub-app .status-badge.status-completed,
+body.trainhub-app .status-completed,
+body.trainhub-app .status-history { background:#059669 !important; color:#fff !important; border-color:#059669 !important; }
+body.trainhub-app .status-badge.status-cancelled,
+body.trainhub-app .status-cancelled { background:#dc2626 !important; color:#fff !important; border-color:#dc2626 !important; }
+
+/* Dark links requested on dashboard. */
+body.page-dashboard .table-footer-link a,
+body.page-dashboard .side-header a {
+    color:#2563EB !important;
+    font-weight:800 !important;
+}
+body.page-dashboard .table-footer-link a:hover,
+body.page-dashboard .side-header a:hover { color:#2563EB !important; }
+
+/* -------------------------
+   COURSE DETAIL / SESSION DETAIL — FLAT INFORMATION LAYOUT
+------------------------- */
+body.page-course .course-detail-information-grid,
+body.page-course .session-view-grid {
+    display:grid !important;
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    gap:0 28px !important;
+    border-top:1px solid #e2e8f0 !important;
+    background:#fff !important;
+}
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box {
+    min-height:58px !important;
+    margin:0 !important;
+    padding:14px 2px !important;
+    border:0 !important;
+    border-bottom:1px solid #e2e8f0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+    display:grid !important;
+    grid-template-columns:minmax(125px,.8fr) minmax(0,1.3fr) !important;
+    align-items:center !important;
+    gap:16px !important;
+}
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box > span {
+    color:#64748b !important;
+    font-size:11px !important;
+    font-weight:800 !important;
+    text-transform:uppercase !important;
+    letter-spacing:.04em !important;
+}
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box > strong {
+    color:#0f172a !important;
+    font-size:12.5px !important;
+    font-weight:750 !important;
+    text-align:left !important;
+    overflow-wrap:anywhere !important;
+}
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-full { grid-column:1/-1 !important; }
+
+/* Make session identity clearly different from participant identity. */
+body.page-course .session-tab-btn {
+    font-weight:800 !important;
+}
+body.page-course .session-tab-btn.active,
+body.page-course .session-pane-header {
+    background:#eff6ff !important;
+    color:#2563EB !important;
+    border-color:#EFF6FF !important;
+}
+body.page-course .session-pane-header h4 {
+    color:#2563EB !important;
+    font-size:15px !important;
+    font-weight:850 !important;
+}
+body.page-course .participant-compact-main strong {
+    color:#0f172a !important;
+    font-size:12.5px !important;
+    font-weight:750 !important;
+}
+body.page-course .participant-compact-main span {
+    color:#64748b !important;
+    font-size:11px !important;
+    font-weight:600 !important;
+}
+
+/* -------------------------
+   TRAINER POLISH
+------------------------- */
+body.page-trainer .expertise-open-btn {
+    width:100% !important;
+    max-width:220px !important;
+    min-width:0 !important;
+    overflow:hidden !important;
+}
+body.page-trainer .expertise-open-btn span {
+    display:block !important;
+    max-width:100% !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+}
+body.page-trainer .modal { z-index:13000 !important; background:rgba(15,23,42,.62) !important; }
+body.page-trainer.modal-open #appTopbar,
+body.page-trainer:has(.modal[style*="display: flex"]) #appTopbar { visibility:visible !important; opacity:1 !important; filter:blur(3px) !important; pointer-events:none !important; }
+body.page-trainer .top-rating :is(.star-wrap,.star-base,.star-fill),
+body.page-trainer .top-rated-panel :is(.star-wrap,.star-base,.star-fill) {
+    text-shadow:none !important;
+    filter:none !important;
+    box-shadow:none !important;
+}
+body.page-trainer .trainer-list-invitation-cell { justify-content:center !important; }
+body.page-trainer .invitation-badge { min-width:72px !important; justify-content:center !important; font-weight:850 !important; }
+body.page-trainer .invitation-pending { background:#d97706 !important; color:#fff !important; border-color:#d97706 !important; }
+body.page-trainer .invitation-accepted { background:#059669 !important; color:#fff !important; border-color:#059669 !important; }
+body.page-trainer .invitation-rejected { background:#dc2626 !important; color:#fff !important; border-color:#dc2626 !important; }
+body.page-trainer .invitation-none { background:#64748b !important; color:#fff !important; border-color:#64748b !important; }
+
+/* -------------------------
+   SETTINGS — WHOLE PAGE SCROLLS TOGETHER
+------------------------- */
+body.page-settings .settings-grid,
+body.page-settings .settings-main { align-items:start !important; }
+body.page-settings .settings-main > .panel:nth-child(2) {
+    position:static !important;
+    top:auto !important;
+}
+body.page-settings .profile-panel { position:static !important; top:auto !important; }
+body.page-settings .page { min-height:calc(100vh - 58px) !important; padding-bottom:56px !important; }
+
+/* -------------------------
+   FEEDBACK — SAME TAB LANGUAGE AS TEACHER PAGE
+------------------------- */
+body.page-feedback .feedback-workspace-tabs {
+    display:flex !important;
+    align-items:center !important;
+    gap:10px !important;
+    flex-wrap:wrap !important;
+    margin:0 0 20px !important;
+    padding:10px !important;
+    border:1px solid #e2e8f0 !important;
+    border-radius:16px !important;
+    background:#fff !important;
+    box-shadow:0 8px 22px rgba(15,23,42,.045) !important;
+}
+body.page-feedback .feedback-workspace-tab {
+    min-height:42px !important;
+    width:auto !important;
+    grid-template-columns:auto !important;
+    padding:0 14px !important;
+    border:1px solid transparent !important;
+    border-radius:12px !important;
+    background:transparent !important;
+    color:#64748b !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:8px !important;
+    text-align:center !important;
+    box-shadow:none !important;
+}
+body.page-feedback .feedback-workspace-tab .feedback-tab-icon { display:none !important; }
+body.page-feedback .feedback-workspace-tab strong { font-size:12px !important; font-weight:850 !important; }
+body.page-feedback .feedback-workspace-tab small { display:none !important; }
+body.page-feedback .feedback-workspace-tab em {
+    width:auto !important;
+    min-width:26px !important;
+    height:24px !important;
+    padding:0 7px !important;
+    border-radius:999px !important;
+    background:#eff6ff !important;
+    color:#2563eb !important;
+    font-size:11px !important;
+}
+body.page-feedback .feedback-workspace-tab:hover { background:#eff6ff !important; color:#2563eb !important; }
+body.page-feedback .feedback-workspace-tab.active {
+    background:#2563eb !important;
+    color:#fff !important;
+    border-color:#2563eb !important;
+    box-shadow:0 8px 18px rgba(37,99,235,.16) !important;
+}
+body.page-feedback .feedback-workspace-tab.active em { background:rgba(255,255,255,.20) !important; color:#fff !important; }
+body.page-feedback .category-builder-top > div > span { display:none !important; }
+body.page-feedback .question-builder-card .question-options-grid { margin-top:14px !important; }
+body.page-feedback .add-category-btn { background:#0f766e !important; border-color:#0f766e !important; color:#fff !important; }
+
+/* Certificate filter heading was intentionally removed; keep controls compact. */
+body.page-certificate .certificate-history-filter { padding:0 !important; border:0 !important; background:transparent !important; box-shadow:none !important; }
+body.page-certificate .certificate-filter-grid { margin:0 0 16px !important; }
+body.page-certificate .certificate-filter-grid > div { min-width:140px !important; }
+body.page-certificate .certificate-filter-actions { display:flex !important; gap:10px !important; align-items:flex-end !important; }
+
+/* Required / error consistency */
+body.trainhub-app .field-error,
+body.trainhub-app .inline-field-error { color:#dc2626 !important; }
+body.trainhub-app :is(input,select,textarea).is-invalid { background:#fffafa !important; }
+
+@media (max-width: 1100px) {
+    body.trainhub-app :is(.filter-form,.course-filters,.trainer-filters,.school-search-form,.list-toolbar,.form-list-toolbar,.participant-filter-toolbar,.certificate-filter-grid,.audit-filter,.credit-year-filter) {
+        flex-wrap:wrap !important;
+    }
+    body.trainhub-app :is(.filter-search,.list-search-box,.form-list-search,.certificate-search-field) {
+        max-width:none !important;
+        flex:1 1 100% !important;
+    }
+    body.page-course .course-detail-information-grid,
+    body.page-course .session-view-grid { grid-template-columns:1fr !important; }
+    body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-full { grid-column:auto !important; }
+}
+
+@media (max-width: 700px) {
+    body.page-feedback .feedback-workspace-tabs { display:grid !important; grid-template-columns:1fr !important; }
+    body.page-feedback .feedback-workspace-tab { width:100% !important; }
+    body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box {
+        grid-template-columns:1fr !important;
+        gap:5px !important;
+    }
+}
+
+/* Final refinements requested after standardization */
+body.trainhub-app .alert{display:none!important}
+body.page-certificate .certificate-filter-grid label{display:none!important}
+body.page-certificate .certificate-filter-actions{align-items:center!important}
+body.page-dashboard .credit-card .side-header{align-items:flex-start!important;gap:12px!important;flex-wrap:wrap!important}
+body.page-dashboard .credit-year-caption{display:block;margin-top:3px;color:#64748b;font-size:10.5px;font-weight:600;line-height:1.35}
+body.page-dashboard .credit-year-filter{width:auto!important;margin-left:0!important;gap:7px!important}
+body.page-dashboard .credit-year-filter label{color:#64748b;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+body.page-dashboard .credit-year-filter select{min-width:92px!important;width:92px!important}
+body.page-dashboard .credit-year-filter button{min-width:72px!important}
+body.page-dashboard .credit-history{margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0}
+body.page-dashboard .credit-history-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+body.page-dashboard .credit-history-head strong{color:#0f172a;font-size:12px;font-weight:850}
+body.page-dashboard .credit-history-head span{padding:4px 8px;border-radius:999px;background:#EFF6FF;color:#2563EB;font-size:10px;font-weight:800}
+body.page-dashboard .credit-history-list{display:grid;gap:8px;max-height:260px;overflow:auto;padding-right:2px}
+body.page-dashboard .credit-history-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+body.page-dashboard .credit-history-main{min-width:0}
+body.page-dashboard .credit-history-main strong{display:block;color:#0f172a;font-size:11.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.page-dashboard .credit-history-main span{display:block;margin-top:3px;color:#64748b;font-size:10px;font-weight:600;line-height:1.35}
+body.page-dashboard .credit-history-item>b{flex:0 0 auto;color:#2563EB;font-size:11px;font-weight:850}
+body.page-dashboard .credit-history-empty{padding:12px;border:1px dashed #cbd5e1;border-radius:10px;color:#64748b;background:#f8fafc;font-size:11px;font-weight:650;text-align:center}
+/* Ensure the profile header never changes size between pages due to older page CSS. */
+#appTopbar.topbar .topbar-inner{box-sizing:border-box!important}
+#appTopbar.topbar .brand-logo{height:50px!important;width:auto!important}
+#appTopbar.topbar .topbar-menu a{height:58px!important;font-size:14px!important;padding-top:0!important;padding-bottom:0!important}
+#appTopbar.topbar .profile-text strong{font-size:12px!important;line-height:1.2!important}
+#appTopbar.topbar .profile-text span{font-size:10.5px!important}
+
+/* Keep every filter area left-aligned beneath its section heading. */
+body.page-dashboard .audit-header{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:12px!important}
+body.page-dashboard .audit-filter{width:auto!important}
+body.page-dashboard .credit-card .side-header{display:flex!important;flex-direction:column!important;align-items:flex-start!important}
+body.page-dashboard .credit-year-filter{justify-content:flex-start!important}
+
+/* Solid, visible action buttons. Tabs remain tab controls, not action buttons. */
+body.trainhub-app .action-btn{border:0!important;background:#2563EB!important;color:#fff!important;box-shadow:none!important}
+body.trainhub-app .action-btn:hover{background:#2563EB!important;color:#fff!important}
+body.trainhub-app .action-btn.danger-action{background:#dc2626!important;color:#fff!important}
+body.trainhub-app .action-btn.danger-action:hover{background:#b91c1c!important}
+body.trainhub-app :is(.danger-outline-btn,.session-remove-btn,.assignment-modal-close,.response-detail-close){border-color:#dc2626!important;background:#dc2626!important;color:#fff!important;box-shadow:none!important}
+body.trainhub-app :is(.cancel-modal-btn,.modal-cancel-btn){border-color:#475569!important;background:#475569!important;color:#fff!important;box-shadow:none!important}
+body.trainhub-app :is(.confirm-modal-btn,.compact-update-btn,.detail-toggle-btn,.save-position-btn,.generate-btn,.download-selected-btn,.assign-toggle-btn,.save-assignment-btn){border-color:#2563eb!important;background:#2563eb!important;color:#fff!important;box-shadow:none!important}
+body.trainhub-app .send-selected-btn{border-color:#0f766e!important;background:#0f766e!important;color:#fff!important;box-shadow:none!important}
+body.page-trainer .expertise-open-btn{border:0!important;border-radius:8px!important;background:#2563EB!important;color:#fff!important;padding:7px 10px!important;box-shadow:none!important}
+body.page-trainer .expertise-open-btn:hover{background:#2563EB!important}
+body.page-certificate .certificate-course-toggle{border-color:#2563EB!important;background:#2563EB!important;color:#fff!important;box-shadow:none!important}
+body.trainhub-app :is(.close-btn,.certificate-list-modal-close){background:#334155!important;color:#fff!important;border-color:#334155!important;box-shadow:none!important}
+body.page-trainer .expertise-open-btn small{display:block!important;max-width:100%!important;margin-top:3px!important;color:#EFF6FF!important;font-size:9.5px!important;font-weight:650!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+
+/* =========================================================
+   FINAL CONSISTENCY LOCK — STANDARDIZED COMPONENT LANGUAGE
+   Blue is limited to Primary #2563EB and Primary Light #EFF6FF.
+========================================================= */
+:root {
+    --trainhub-primary: #2563EB;
+    --trainhub-primary-light: #EFF6FF;
+    --trainhub-success: #059669;
+    --trainhub-danger: #DC2626;
+    --trainhub-warning: #D97706;
+    --trainhub-neutral: #475569;
+    --trainhub-email: #0F766E;
+    --trainhub-utility: #7C3AED;
+}
+
+/* Only the approved two blues are used for blue UI. */
+body.trainhub-app a:not(.status-badge):not(.invitation-badge) {
+    --link-primary: var(--trainhub-primary);
+}
+
+/* ---- Consistent action meanings ---- */
+body.trainhub-app :is(
+    .primary-btn,.filter-submit-btn,.filter-btn,.list-filter-btn,.participant-filter-btn,
+    #applyCertificateFilter,.save-btn,.submit-btn,.save-feedback-btn,.submit-answer-btn,
+    .add-session-btn,.trainer-assign-btn,.add-question-btn,.confirm-modal-btn,
+    .compact-update-btn,.detail-toggle-btn,.save-position-btn,.generate-btn,.assign-toggle-btn,
+    .save-assignment-btn,.secondary-action-btn,.back-link-btn,.secondary-back-btn,
+    .mini-secondary-btn,.trainer-add-page-btn,.current-file-link,.action-btn:not(.danger-action),
+    .session-qr-link,.credit-history-open-btn
+) {
+    border-color: var(--trainhub-primary) !important;
+    background: var(--trainhub-primary) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+}
+
+.dashboard-training-link{
+    color: #000000 !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+}
+
+body.trainhub-app :is(
+    .primary-btn,.filter-submit-btn,.filter-btn,.list-filter-btn,.participant-filter-btn,
+    #applyCertificateFilter,.save-btn,.submit-btn,.save-feedback-btn,.submit-answer-btn,
+    .add-session-btn,.trainer-assign-btn,.add-question-btn,.confirm-modal-btn,
+    .compact-update-btn,.detail-toggle-btn,.save-position-btn,.generate-btn,.assign-toggle-btn,
+    .save-assignment-btn,.secondary-action-btn,.back-link-btn,.secondary-back-btn,
+    .mini-secondary-btn,.trainer-add-page-btn,.current-file-link,.action-btn:not(.danger-action),
+    .session-qr-link,.credit-history-open-btn
+):hover:not(:disabled) {
+    border-color: var(--trainhub-primary) !important;
+    background: var(--trainhub-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 5px 14px rgba(37,99,235,.16) !important;
+}
+
+/* Cancel always amber/yellow. */
+body.trainhub-app :is(.cancel-btn,.modal-cancel-btn,.cancel-modal-btn,.ui-cancel) {
+    border-color: var(--trainhub-warning) !important;
+    background: var(--trainhub-warning) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* Reset/clear is neutral slate. */
+body.trainhub-app :is(.reset-filter,.list-reset-btn,.participant-reset-btn,#resetCertificateFilter) {
+    border-color: var(--trainhub-neutral) !important;
+    background: var(--trainhub-neutral) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* Delete/remove/reject is always red. */
+body.trainhub-app :is(
+    .delete-btn,.danger-btn,.danger-inline-btn,.delete-invitation-btn,.not-approve-btn,
+    .remove-category-btn,.remove-question-btn,.danger-outline-btn,.session-remove-btn,
+    .action-btn.danger-action,.assignment-modal-close,.response-detail-close
+) {
+    border-color: var(--trainhub-danger) !important;
+    background: var(--trainhub-danger) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* Approve/success is green. */
+body.trainhub-app :is(.approve-btn,.success-btn,.ui-ok) {
+    border-color: var(--trainhub-success) !important;
+    background: var(--trainhub-success) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* Email/send actions are teal. */
+body.trainhub-app :is(.send-selected-btn,.resend-cert-btn,.email-btn,.send-btn) {
+    border-color: var(--trainhub-email) !important;
+    background: var(--trainhub-email) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* Download/duplicate utility actions are purple. */
+body.trainhub-app :is(.download-selected-btn,.download-btn,.duplicate-inline-btn) {
+    border-color: var(--trainhub-utility) !important;
+    background: var(--trainhub-utility) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* Builder category action keeps a recognizable utility color. */
+body.page-feedback .add-category-btn {
+    border-color: var(--trainhub-utility) !important;
+    background: var(--trainhub-utility) !important;
+    color:#fff !important;
+}
+
+/* Status meanings stay identical on every page. */
+body.trainhub-app :is(.status-badge.status-upcoming,.status-upcoming) {
+    background:var(--trainhub-primary)!important;color:#fff!important;border-color:var(--trainhub-primary)!important;
+}
+body.trainhub-app :is(.status-badge.status-ongoing,.status-ongoing) {
+    background:var(--trainhub-warning)!important;color:#fff!important;border-color:var(--trainhub-warning)!important;
+}
+body.trainhub-app :is(.status-badge.status-completed,.status-completed,.status-history) {
+    background:var(--trainhub-success)!important;color:#fff!important;border-color:var(--trainhub-success)!important;
+}
+body.trainhub-app :is(.status-badge.status-cancelled,.status-cancelled) {
+    background:var(--trainhub-danger)!important;color:#fff!important;border-color:var(--trainhub-danger)!important;
+}
+
+/* Dashboard links use the primary blue, never an alternate navy. */
+body.page-dashboard :is(.table-footer-link a,.side-header a) {
+    color:var(--trainhub-primary)!important;
+    font-weight:800!important;
+}
+
+/* ---- Search / filter geometry: inside the page, aligned left, one row on wide screens ---- */
+body.trainhub-app :is(
+    .filter-form,.course-filters,.trainer-filters,.school-search-form,.list-toolbar,
+    .form-list-toolbar,.participant-filter-toolbar,.certificate-filter-grid,.audit-filter
+) {
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    align-items:flex-end!important;
+    justify-content:flex-start!important;
+    gap:10px!important;
+}
+body.trainhub-app :is(
+    .filter-form,.course-filters,.trainer-filters,.school-search-form,.list-toolbar,
+    .form-list-toolbar,.participant-filter-toolbar,.certificate-filter-grid
+) > * {
+    min-width:0!important;
+    box-sizing:border-box!important;
+}
+body.trainhub-app :is(.filter-search,.list-search-box,.form-list-search,.certificate-search-field) {
+    min-width:180px!important;
+    max-width:420px!important;
+    flex:1 1 260px!important;
+}
+body.trainhub-app :is(.filter-search,.list-search-box,.form-list-search,.certificate-search-field) input {
+    width:100%!important;
+    min-width:0!important;
+}
+body.trainhub-app :is(.filter-form,.trainer-filters,.school-search-form,.list-toolbar,.form-list-toolbar,.participant-filter-toolbar) select {
+    min-width:130px!important;
+    max-width:210px!important;
+    flex:0 1 180px!important;
+}
+
+/* Training page gets a dedicated full-width filter row. */
+body.page-course .course-panel-header {
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    gap:16px!important;
+}
+body.page-course .course-filters {
+    display:grid!important;
+    grid-template-columns:minmax(220px,1fr) minmax(145px,180px) minmax(135px,165px) 86px 82px!important;
+    width:100%!important;
+    max-width:100%!important;
+    overflow:visible!important;
+}
+body.page-course .course-filters .filter-search,
+body.page-course .course-filters select,
+body.page-course .course-filters .filter-submit-btn,
+body.page-course .course-filters .reset-filter {
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:0!important;
+}
+
+/* Training/session details use a clear label:value relationship. */
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box > span::after {
+    content:":";
+    margin-left:2px;
+}
+
+/* Keep every tab header/filter within viewport. */
+body.trainhub-app .page,
+body.trainhub-app :is(.panel,.page-panel,.table-wrap,.panel-header,.page-panel-header) {
+    max-width:100%!important;
+    box-sizing:border-box!important;
+}
+body.trainhub-app .table-wrap { overflow-x:auto!important; }
+
+@media (max-width:1050px) {
+    body.page-course .course-filters {
+        grid-template-columns:minmax(220px,1fr) minmax(140px,1fr) minmax(130px,1fr) 86px 82px!important;
+    }
+}
+@media (max-width:860px) {
+    body.page-course .course-filters {
+        grid-template-columns:1fr 1fr!important;
+    }
+    body.page-course .course-filters .filter-search { grid-column:1/-1!important; }
+    body.trainhub-app :is(
+        .filter-form,.trainer-filters,.school-search-form,.list-toolbar,.form-list-toolbar,
+        .participant-filter-toolbar,.certificate-filter-grid
+    ) { flex-wrap:wrap!important; }
+}
+@media (max-width:560px) {
+    body.page-course .course-filters { grid-template-columns:1fr!important; }
+    body.page-course .course-filters .filter-search { grid-column:auto!important; }
+    body.trainhub-app :is(.filter-search,.list-search-box,.form-list-search,.certificate-search-field),
+    body.trainhub-app :is(.filter-form,.trainer-filters,.school-search-form,.list-toolbar,.form-list-toolbar,.participant-filter-toolbar) select {
+        flex:1 1 100%!important;
+        max-width:none!important;
+        width:100%!important;
+    }
+}
+
+/* =========================================================
+   FILTER TOOLBAR ALIGNMENT LOCK — SAME DIRECTION ON EVERY PAGE
+========================================================= */
+body.page-trainer .trainer-panel-header,
+body.page-teacher .course-panel-header {
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    gap:14px!important;
+}
+body.page-trainer .trainer-panel-header .panel-title,
+body.page-teacher .course-panel-header .panel-title {
+    width:100%!important;
+}
+body.page-trainer .trainer-filters,
+body.page-teacher .school-search-form {
+    width:100%!important;
+    justify-content:flex-start!important;
+    flex-wrap:nowrap!important;
+}
+
+body.page-feedback .form-list-toolbar {
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:10px!important;
+    width:100%!important;
+    max-width:100%!important;
+    flex-wrap:nowrap!important;
+}
+body.page-feedback .form-list-toolbar .form-list-search {
+    flex:1 1 300px!important;
+    max-width:460px!important;
+}
+body.page-feedback .form-list-toolbar select {
+    width:190px!important;
+    max-width:190px!important;
+    flex:0 1 190px!important;
+}
+body.page-feedback .form-list-result {
+    margin-left:auto!important;
+    min-width:0!important;
+    white-space:nowrap!important;
+}
+
+body.page-certificate .certificate-filter-grid {
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:10px!important;
+    width:100%!important;
+    max-width:100%!important;
+    flex-wrap:nowrap!important;
+}
+body.page-certificate .certificate-filter-grid > div {
+    min-width:0!important;
+    flex:0 1 155px!important;
+    width:auto!important;
+}
+body.page-certificate .certificate-filter-grid .certificate-search-field {
+    flex:1 1 280px!important;
+    max-width:420px!important;
+}
+body.page-certificate .certificate-filter-grid select,
+body.page-certificate .certificate-filter-grid input {
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+}
+body.page-certificate .certificate-filter-actions {
+    flex:0 0 auto!important;
+    display:flex!important;
+    gap:8px!important;
+    white-space:nowrap!important;
+}
+
+@media(max-width:1180px){
+    body.page-feedback .form-list-toolbar,
+    body.page-certificate .certificate-filter-grid,
+    body.page-trainer .trainer-filters,
+    body.page-teacher .school-search-form {
+        flex-wrap:wrap!important;
+    }
+    body.page-feedback .form-list-result { margin-left:0!important; width:100%!important; }
+    body.page-certificate .certificate-filter-grid .certificate-search-field { flex:1 1 100%!important;max-width:none!important; }
+}
+@media(max-width:700px){
+    body.page-feedback .form-list-toolbar > *,
+    body.page-certificate .certificate-filter-grid > div,
+    body.page-trainer .trainer-filters > *,
+    body.page-teacher .school-search-form > * {
+        width:100%!important;
+        max-width:none!important;
+        flex:1 1 100%!important;
+    }
+    body.page-certificate .certificate-filter-actions { display:grid!important;grid-template-columns:1fr 1fr!important; }
+}
+
+/* =========================================================
+   REFINEMENT PASS — SOFTER SEMANTIC COLORS + TIGHTER LAYOUT
+========================================================= */
+:root {
+    --trainhub-primary: #2563EB;
+    --trainhub-primary-light: #EFF6FF;
+    --trainhub-success: #22C55E;
+    --trainhub-danger: #EF4444;
+    --trainhub-warning: #F59E0B;
+    --trainhub-neutral: #64748B;
+    --trainhub-email: #14B8A6;
+    --trainhub-utility: #8B5CF6;
+    --trainhub-view: #14B8A6;
+    --trainhub-edit: #8B5CF6;
+}
+
+/* Softer but still visible semantic button system. */
+body.trainhub-app :is(.cancel-btn,.modal-cancel-btn,.cancel-modal-btn,.ui-cancel) {
+    border-color: var(--trainhub-warning) !important;
+    background: var(--trainhub-warning) !important;
+    color: #422006 !important;
+}
+body.trainhub-app :is(.reset-filter,.list-reset-btn,.participant-reset-btn,#resetCertificateFilter,.school-tab-reset-btn) {
+    border-color: var(--trainhub-neutral) !important;
+    background: var(--trainhub-neutral) !important;
+    color:#fff !important;
+}
+body.trainhub-app :is(.delete-btn,.danger-btn,.danger-inline-btn,.delete-invitation-btn,.not-approve-btn,.remove-category-btn,.remove-question-btn,.danger-outline-btn,.session-remove-btn,.action-btn.danger-action,.assignment-modal-close,.response-detail-close) {
+    border-color:var(--trainhub-danger)!important;
+    background:var(--trainhub-danger)!important;
+    color:#fff!important;
+}
+body.trainhub-app :is(.approve-btn,.success-btn,.ui-ok) {
+    border-color:var(--trainhub-success)!important;
+    background:var(--trainhub-success)!important;
+    color:#fff!important;
+}
+body.trainhub-app :is(.send-selected-btn,.resend-cert-btn,.email-btn,.send-btn) {
+    border-color:var(--trainhub-email)!important;
+    background:var(--trainhub-email)!important;
+    color:#fff!important;
+}
+body.trainhub-app :is(.download-selected-btn,.download-btn,.duplicate-inline-btn) {
+    border-color:var(--trainhub-utility)!important;
+    background:var(--trainhub-utility)!important;
+    color:#fff!important;
+}
+
+/* Icon-only view actions use teal; destructive stays red. */
+body.trainhub-app .action-btn:not(.danger-action) {
+    border-color:var(--trainhub-view)!important;
+    background:var(--trainhub-view)!important;
+    color:#fff!important;
+}
+
+/* Keep true primary actions using only the approved primary blue. */
+body.trainhub-app :is(.primary-btn,.filter-submit-btn,.filter-btn,.list-filter-btn,.participant-filter-btn,#applyCertificateFilter,.save-btn,.submit-btn,.save-feedback-btn,.submit-answer-btn,.add-session-btn,.trainer-assign-btn,.add-question-btn,.confirm-modal-btn,.compact-update-btn,.save-position-btn,.generate-btn,.assign-toggle-btn,.save-assignment-btn,.trainer-add-page-btn,.back-link-btn,.secondary-back-btn,.credit-history-open-btn) {
+    border-color:var(--trainhub-primary)!important;
+    background:var(--trainhub-primary)!important;
+    color:#fff!important;
+}
+
+/* Dashboard 'View all trainings' is text-only, not a filled button. */
+
+body.page-dashboard .table-footer-link a {
+    display:inline-flex!important;
+    min-height:0!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    color:var(--trainhub-primary)!important;
+    font-weight:850!important;
+}
+body.page-dashboard .table-footer-link a:hover {
+    background:transparent!important;
+    color:var(--trainhub-primary)!important;
+    text-decoration:underline!important;
+}
+
+/* Training list: remove unnecessary vertical gap above filter toolbar. */
+body.page-course .course-panel-header {
+    padding:14px 18px 16px!important;
+    gap:4px!important;
+}
+body.page-course .course-panel-header .panel-title {
+    margin:0!important;
+    padding:0!important;
+    min-height:0!important;
+    line-height:1!important;
+}
+body.page-course .course-panel-header .panel-title h2 {
+    margin:0!important;
+    line-height:1.2!important;
+}
+body.page-course .course-filters {
+    margin:0!important;
+    padding:0!important;
+}
+body.page-course .filter-search {
+    position:relative!important;
+    padding-left:34px!important;
+}
+body.page-course .filter-search input {
+    padding-left:0!important;
+}
+body.page-course .filter-search-icon {
+    position:absolute;
+    left:11px;
+    top:50%;
+    width:16px;
+    height:16px;
+    transform:translateY(-50%);
+    color:#64748B;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    pointer-events:none;
+}
+body.page-course .filter-search-icon svg { width:16px;height:16px; }
+
+/* Training details: compact label : value relationship. */
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box {
+    grid-template-columns:max-content minmax(0,1fr)!important;
+    gap:6px!important;
+    min-height:52px!important;
+    padding:12px 2px!important;
+}
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box > span {
+    margin:0!important;
+    white-space:nowrap!important;
+    letter-spacing:0!important;
+    text-transform:none!important;
+    font-size:12px!important;
+}
+body.page-course :is(.course-detail-information-grid,.session-view-grid) .detail-box > span::after {
+    content:":";
+    margin-left:1px!important;
+}
+
+/* Expertise is data, so use a readable primary-light treatment instead of a dark button. */
+body.page-trainer .expertise-open-btn {
+    border:1px solid #2563EB!important;
+    background:#EFF6FF!important;
+    color:#0F172A!important;
+    box-shadow:none!important;
+}
+body.page-trainer .expertise-open-btn:hover {
+    background:#EFF6FF!important;
+    border-color:#2563EB!important;
+}
+body.page-trainer .expertise-open-btn span {
+    color:#0F172A!important;
+}
+body.page-trainer .expertise-open-btn small {
+    color:#2563EB!important;
+}
+body.page-trainer .text-view-body {
+    background:#fff!important;
+    color:#0F172A!important;
+}
+
+/* Generated certificate course cards: bright and readable. */
+body.page-certificate .certificate-course-accordion {
+    border:1px solid #E2E8F0!important;
+    background:#fff!important;
+    box-shadow:0 4px 14px rgba(15,23,42,.04)!important;
+}
+body.page-certificate .certificate-course-toggle {
+    border:0!important;
+    background:#fff!important;
+    color:#0F172A!important;
+    box-shadow:none!important;
+}
+body.page-certificate .certificate-course-toggle:hover {
+    background:#EFF6FF!important;
+}
+body.page-certificate .course-accordion-icon {
+    background:#EFF6FF!important;
+    color:#2563EB!important;
+    border:1px solid #BFDBFE!important;
+}
+body.page-certificate .course-accordion-main strong {
+    color:#0F172A!important;
+}
+body.page-certificate .course-accordion-status span {
+    background:#EFF6FF!important;
+    color:#2563EB!important;
+}
+
+/* Filters can never grow wider than their container. */
+body.trainhub-app :is(.filter-form,.course-filters,.trainer-filters,.school-search-form,.form-list-toolbar,.participant-filter-toolbar,.certificate-filter-grid) {
+    overflow:visible!important;
+    max-width:100%!important;
+}
+body.trainhub-app :is(.filter-form,.course-filters,.trainer-filters,.school-search-form,.form-list-toolbar,.participant-filter-toolbar,.certificate-filter-grid) :is(input,select,button,a) {
+    box-sizing:border-box!important;
+}
+
+/* =========================================================
+   FINAL UI POLISH — 2026-09-06
+   Compact Training filter, soft actions/statuses, dashboard
+   text link and date-month treatment.
+========================================================= */
+:root {
+    --soft-primary-bg: #EFF6FF;
+    --soft-success-bg: #ECFDF3;
+    --soft-success-text: #15803D;
+    --soft-warning-bg: #FFF7E6;
+    --soft-warning-text: #B45309;
+    --soft-danger-bg: #FEF2F2;
+    --soft-danger-text: #DC2626;
+    --soft-neutral-bg: #F1F5F9;
+    --soft-neutral-text: #475569;
+    --soft-teal-bg: #ECFEF8;
+    --soft-teal-text: #0F766E;
+    --soft-purple-bg: #F5F3FF;
+    --soft-purple-text: #7C3AED;
+    --soft-orange-bg: #FFF7ED;
+    --soft-orange-text: #C2410C;
+    --soft-rose-bg: #FDF2F8;
+    --soft-rose-text: #BE185D;
+}
+
+/* Training list header and filters are two compact rows. This removes
+   the large blank flex area that could appear when both lived in one header. */
+body.page-course .training-list-panel > .course-panel-header {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 14px 18px !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+}
+body.page-course .training-list-panel > .course-panel-header .panel-title {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+}
+body.page-course .course-filter-bar {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 18px 14px;
+    margin: 0;
+    border-bottom: 1px solid var(--app-divider, #E2E8F0);
+    background: #FFFFFF;
+}
+body.page-course .course-filter-bar .course-filters {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    align-items: center !important;
+}
+
+/* Primary create/save/filter actions stay solid so the main action is clear. */
+body.trainhub-app :is(
+    .primary-btn,.filter-submit-btn,.filter-btn,.list-filter-btn,.participant-filter-btn,
+    #applyCertificateFilter,.save-btn,.submit-btn,.save-feedback-btn,.submit-answer-btn,
+    .add-session-btn,.trainer-assign-btn,.add-question-btn,.confirm-modal-btn,
+    .compact-update-btn,.save-position-btn,.generate-btn,.assign-toggle-btn,
+    .save-assignment-btn,.trainer-add-page-btn
+) {
+    border-color: #2563EB !important;
+    background: #2563EB !important;
+    color: #FFFFFF !important;
+    box-shadow: none !important;
+}
+
+/* Secondary/view/manage actions use the approved primary-light blue. */
+body.trainhub-app :is(
+    .action-btn:not(.danger-action),.detail-toggle-btn,.secondary-action-btn,
+    .back-link-btn,.secondary-back-btn,.mini-secondary-btn,.current-file-link,
+    .session-qr-link,.credit-history-open-btn
+) {
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+    border-color: rgba(37,99,235,.20) !important;
+    box-shadow: none !important;
+}
+body.trainhub-app :is(
+    .action-btn:not(.danger-action),.detail-toggle-btn,.secondary-action-btn,
+    .back-link-btn,.secondary-back-btn,.mini-secondary-btn,.current-file-link,
+    .session-qr-link,.credit-history-open-btn
+):hover:not(:disabled) {
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+    border-color: #2563EB !important;
+    box-shadow: none !important;
+}
+
+/* Standard semantic soft actions. */
+body.trainhub-app :is(.cancel-btn,.modal-cancel-btn,.cancel-modal-btn,.ui-cancel) {
+    background: var(--soft-warning-bg) !important;
+    color: var(--soft-warning-text) !important;
+    border-color: rgba(245,158,11,.28) !important;
+}
+body.trainhub-app :is(.reset-filter,.list-reset-btn,.participant-reset-btn,#resetCertificateFilter,.school-tab-reset-btn) {
+    background: var(--soft-neutral-bg) !important;
+    color: var(--soft-neutral-text) !important;
+    border-color: #E2E8F0 !important;
+}
+body.trainhub-app :is(
+    .delete-btn,.danger-btn,.danger-inline-btn,.delete-invitation-btn,.not-approve-btn,
+    .remove-category-btn,.remove-question-btn,.danger-outline-btn,.session-remove-btn,
+    .action-btn.danger-action,.assignment-modal-close,.response-detail-close
+) {
+    background: var(--soft-danger-bg) !important;
+    color: var(--soft-danger-text) !important;
+    border-color: rgba(239,68,68,.24) !important;
+}
+body.trainhub-app :is(.approve-btn,.success-btn,.ui-ok) {
+    background: var(--soft-success-bg) !important;
+    color: var(--soft-success-text) !important;
+    border-color: rgba(34,197,94,.25) !important;
+}
+body.trainhub-app :is(.send-selected-btn,.resend-cert-btn,.email-btn,.send-btn) {
+    background: var(--soft-teal-bg) !important;
+    color: var(--soft-teal-text) !important;
+    border-color: rgba(20,184,166,.24) !important;
+}
+body.trainhub-app :is(.download-selected-btn,.download-btn) {
+    background: var(--soft-orange-bg) !important;
+    color: var(--soft-orange-text) !important;
+    border-color: rgba(249,115,22,.24) !important;
+}
+body.trainhub-app .duplicate-inline-btn {
+    background: var(--soft-rose-bg) !important;
+    color: var(--soft-rose-text) !important;
+    border-color: rgba(219,39,119,.22) !important;
+}
+body.page-feedback .add-category-btn {
+    background: var(--soft-purple-bg) !important;
+    color: var(--soft-purple-text) !important;
+    border-color: rgba(139,92,246,.24) !important;
+}
+
+/* Status badges are soft everywhere. */
+body.trainhub-app :is(.status-badge.status-upcoming,.status-upcoming) {
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+    border-color: rgba(37,99,235,.20) !important;
+}
+body.trainhub-app :is(.status-badge.status-ongoing,.status-ongoing) {
+    background: var(--soft-warning-bg) !important;
+    color: var(--soft-warning-text) !important;
+    border-color: rgba(245,158,11,.24) !important;
+}
+body.trainhub-app :is(.status-badge.status-completed,.status-completed,.status-history) {
+    background: var(--soft-success-bg) !important;
+    color: var(--soft-success-text) !important;
+    border-color: rgba(34,197,94,.24) !important;
+}
+body.trainhub-app :is(.status-badge.status-cancelled,.status-cancelled) {
+    background: var(--soft-danger-bg) !important;
+    color: var(--soft-danger-text) !important;
+    border-color: rgba(239,68,68,.24) !important;
+}
+
+
+
+/* The small month label above an upcoming-session date uses primary blue text. */
+body.page-dashboard .date-box span {
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+}
+
+@media (max-width: 980px) {
+    body.page-course .course-filter-bar .course-filters {
+        grid-template-columns: minmax(220px, 1fr) minmax(130px, 1fr) minmax(130px, 1fr) 86px 82px !important;
+    }
+}
+@media (max-width: 760px) {
+    body.page-course .course-filter-bar { padding: 12px 14px 14px; }
+    body.page-course .course-filter-bar .course-filters {
+        grid-template-columns: 1fr 1fr !important;
+    }
+    body.page-course .course-filter-bar .course-filters .filter-search {
+        grid-column: 1 / -1 !important;
+    }
+}
+@media (max-width: 520px) {
+    body.page-course .course-filter-bar .course-filters {
+        grid-template-columns: 1fr !important;
+    }
+    body.page-course .course-filter-bar .course-filters .filter-search {
+        grid-column: auto !important;
+    }
+}
+
+
+/* 2026-09-07 defensive hover visibility lock */
+body.trainhub-app :is(.primary-btn,.filter-submit-btn,.save-feedback-btn,.compact-update-btn):hover{opacity:1!important;visibility:visible!important;color:#fff!important}
+body.trainhub-app :is(.danger-btn,.danger-action,.danger-inline-btn):hover{opacity:1!important;visibility:visible!important;color:#fff!important}
+body.trainhub-app :is(.danger-btn,.danger-action,.danger-inline-btn):hover svg{stroke:currentColor!important}
+body.trainhub-app :is(.cancel-btn,.reset-filter,.secondary-back-btn):hover{opacity:1!important;visibility:visible!important}

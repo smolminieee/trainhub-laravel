@@ -1,0 +1,286 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\StaffEdu;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use Throwable;
+
+class SettingsController extends Controller
+{
+    public function index(Request $request): View|RedirectResponse
+    {
+        $staffID = (string) ($_SESSION['staffID'] ?? $_SESSION['staff_id'] ?? '');
+
+        if ($staffID === '') {
+            return redirect()->route('login');
+        }
+
+        if ($request->isMethod('post')) {
+            return $this->handlePost($request, $staffID);
+        }
+
+        $staff = DB::table('staff_edu')
+            ->selectRaw('staffID, staffName, ICNumber, phoneNumber, email, maritalStatus, gender, address, race, appointedDate, serviceDate, pensionDate, latestAge, password_changed_required, role, credit_hour, department, status, fn_age_from_ic(ICNumber) AS calculatedAge, fn_service_duration(appointedDate) AS calculatedServiceDuration')
+            ->where('staffID', $staffID)
+            ->first();
+
+        if (!$staff) {
+            $this->destroyNativeSession();
+            return redirect()->route('login');
+        }
+
+        // Keep the legacy-native session values expected by the shared topbar.
+        $_SESSION['staffID'] = (string) $staff->staffID;
+        $_SESSION['staff_id'] = (string) $staff->staffID;
+        $_SESSION['staffName'] = (string) $staff->staffName;
+        $_SESSION['staff_name'] = (string) $staff->staffName;
+
+        $staffArray = (array) $staff;
+
+        // Credit hours are annual. Training still follows approved course attendance.
+        // Tarbiah is read-only in TrainHub: if a Staff EDU row exists in
+        // staff_tarbiah_attendance, that Tarbiah is treated as joined and its
+        // duration contributes at x1.0 (maximum 10 hours per year).
+        try {
+            $creditRow = DB::table('v_staff_credit_hour')
+                ->where('staffID', $staffID)
+                ->first(['creditYear', 'trainingCreditHour']);
+
+            $trainingCredit = min(30.0, (float) ($creditRow->trainingCreditHour ?? 0));
+
+            $tarbiahRaw = (float) (DB::table('staff_tarbiah_attendance as sta')
+                ->join('tarbiah as t', 't.tarbiah_id', '=', 'sta.tarbiah_id')
+                ->where('sta.staffID', $staffID)
+                ->whereYear('t.session_date', (int) date('Y'))
+                ->selectRaw('COALESCE(SUM(CASE WHEN t.end_time > t.start_time THEN TIME_TO_SEC(TIMEDIFF(t.end_time, t.start_time)) / 3600 ELSE 0 END), 0) AS hours')
+                ->value('hours') ?? 0);
+
+            $tarbiahCredit = min(10.0, round($tarbiahRaw, 2));
+
+            $staffArray['credit_hour'] = min(40.0, $trainingCredit + $tarbiahCredit);
+            $staffArray['credit_year'] = (int) ($creditRow->creditYear ?? date('Y'));
+            $staffArray['tarbiah_credit_hour'] = $tarbiahCredit;
+            $staffArray['training_credit_hour'] = $trainingCredit;
+        } catch (Throwable $e) {
+            // Keep the existing staff_edu.credit_hour as a compatibility fallback
+            // if the annual credit sources are temporarily unavailable.
+            report($e);
+        }
+
+        $displayAge = !empty($staffArray['calculatedAge'])
+            ? $staffArray['calculatedAge']
+            : ($staffArray['latestAge'] ?? '-');
+
+        $calculatedServiceDuration = trim((string) ($staffArray['calculatedServiceDuration'] ?? ''));
+        $storedServiceDate = trim((string) ($staffArray['serviceDate'] ?? ''));
+        $displayServiceDuration = $calculatedServiceDuration !== ''
+            ? $calculatedServiceDuration
+            : ($storedServiceDate !== '' ? $storedServiceDate : '-');
+
+        $statusClass = strtolower((string) ($staffArray['status'] ?? 'inactive'));
+        if (!in_array($statusClass, ['active', 'inactive'], true)) {
+            $statusClass = 'inactive';
+        }
+
+        $name = (string) ($staffArray['staffName'] ?? 'A');
+        $avatarCharacter = function_exists('mb_substr')
+            ? mb_substr($name, 0, 1, 'UTF-8')
+            : substr($name, 0, 1);
+
+        $flash = session('settings_flash', []);
+
+        return view('legacy.settings', [
+            'staff' => $staffArray,
+            'displayAge' => $displayAge,
+            'displayServiceDuration' => $displayServiceDuration,
+            'statusClass' => $statusClass,
+            'avatarCharacter' => $avatarCharacter,
+            'message' => (string) ($flash['message'] ?? ''),
+            'messageType' => (string) ($flash['type'] ?? 'success'),
+        ]);
+    }
+
+    private function handlePost(Request $request, string $staffID): RedirectResponse
+    {
+        return match ((string) $request->input('action')) {
+            'update_profile' => $this->updateProfile($request, $staffID),
+            'change_password' => $this->changePassword($request, $staffID),
+            default => $this->backWithMessage('error', 'Invalid settings action.'),
+        };
+    }
+
+    private function updateProfile(Request $request, string $staffID): RedirectResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'staffName' => ['required', 'string', 'max:250'],
+            'phoneNumber' => ['nullable', 'string', 'max:20'],
+            'email' => [
+                'nullable',
+                'email',
+                'max:100',
+                Rule::unique('staff_edu', 'email')->ignore($staffID, 'staffID'),
+            ],
+            'maritalStatus' => ['nullable', 'string', 'max:20'],
+            'gender' => ['nullable', 'string', 'max:10'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'race' => ['nullable', 'string', 'max:50'],
+            'department' => ['nullable', 'string', 'max:50'],
+        ], [
+            'staffName.required' => 'Staff name is required.',
+            'email.email' => 'Please enter a valid email address.',
+            'email.unique' => 'That email address is already used by another staff account.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->route('settings.index')
+                ->withErrors($validator)
+                ->withInput()
+                ->with('settings_flash', [
+                    'type' => 'error',
+                    'message' => $validator->errors()->first(),
+                ]);
+        }
+
+        $data = $validator->validated();
+        foreach (['phoneNumber', 'email', 'maritalStatus', 'gender', 'address', 'race', 'department'] as $field) {
+            $value = isset($data[$field]) ? trim((string) $data[$field]) : '';
+            $data[$field] = $value === '' ? null : $value;
+        }
+        $data['staffName'] = trim((string) $data['staffName']);
+
+        try {
+            $changed = DB::transaction(function () use ($staffID, $data): bool {
+                $old = DB::table('staff_edu')
+                    ->where('staffID', $staffID)
+                    ->lockForUpdate()
+                    ->first([
+                        'staffName', 'phoneNumber', 'email', 'maritalStatus',
+                        'gender', 'address', 'race', 'department',
+                    ]);
+
+                if (!$old) {
+                    throw new \RuntimeException('The staff account could not be found.');
+                }
+
+                $newValues = [
+                    'staffName' => $data['staffName'],
+                    'phoneNumber' => $data['phoneNumber'],
+                    'email' => $data['email'],
+                    'maritalStatus' => $data['maritalStatus'],
+                    'gender' => $data['gender'],
+                    'address' => $data['address'],
+                    'race' => $data['race'],
+                    'department' => $data['department'],
+                ];
+
+                $oldValues = (array) $old;
+                $normalize = static fn ($value) => $value === null ? null : (string) $value;
+                foreach ($newValues as $key => $value) {
+                    if ($normalize($oldValues[$key] ?? null) !== $normalize($value)) {
+                        DB::table('staff_edu')->where('staffID', $staffID)->update($newValues);
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+
+            $_SESSION['staffName'] = $data['staffName'];
+            $_SESSION['staff_name'] = $data['staffName'];
+
+            return $this->backWithMessage('success', $changed ? 'Profile updated successfully.' : 'No profile changes to save.');
+        } catch (QueryException $e) {
+            report($e);
+            $message = ((int) ($e->errorInfo[1] ?? 0) === 1062)
+                ? 'The email address is already used by another staff account.'
+                : 'Unable to save the settings at this time. Please try again.';
+            return $this->backWithMessage('error', $message);
+        } catch (Throwable $e) {
+            report($e);
+            return $this->backWithMessage('error', 'Unable to save the settings at this time. Please try again.');
+        }
+    }
+
+    private function changePassword(Request $request, string $staffID): RedirectResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'currentPassword' => ['required', 'string'],
+            'newPassword' => ['required', 'string', 'min:8', 'max:72', 'same:confirmPassword'],
+            'confirmPassword' => ['required', 'string', 'min:8', 'max:72'],
+        ], [
+            'currentPassword.required' => 'Current password is required.',
+            'newPassword.required' => 'New password is required.',
+            'newPassword.min' => 'New password must be at least 8 characters.',
+            'newPassword.max' => 'New password cannot exceed 72 characters.',
+            'newPassword.same' => 'New password and confirmation password do not match.',
+            'confirmPassword.required' => 'Confirmation password is required.',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->backWithMessage('error', $validator->errors()->first());
+        }
+
+        $current = (string) $request->input('currentPassword');
+        $new = (string) $request->input('newPassword');
+
+        try {
+            DB::transaction(function () use ($staffID, $current, $new): void {
+                $staff = StaffEdu::query()->whereKey($staffID)->lockForUpdate()->first();
+                if (!$staff) {
+                    throw new \RuntimeException('The staff account could not be found.');
+                }
+
+                $stored = (string) $staff->password;
+                $passwordInfo = password_get_info($stored);
+                $isHash = !empty($passwordInfo['algo']);
+                $currentValid = $isHash ? password_verify($current, $stored) : hash_equals($stored, $current);
+
+                if (!$currentValid) {
+                    throw new \InvalidArgumentException('Current password is incorrect.');
+                }
+
+                $newMatchesCurrent = $isHash ? password_verify($new, $stored) : hash_equals($stored, $new);
+                if ($newMatchesCurrent) {
+                    throw new \InvalidArgumentException('The new password must be different from the current password.');
+                }
+
+                $staff->password = Hash::make($new);
+                $staff->password_changed_required = 0;
+                $staff->save();
+            });
+
+            $_SESSION['password_change_required'] = 0;
+            return $this->backWithMessage('success', 'Password changed successfully.');
+        } catch (\InvalidArgumentException $e) {
+            return $this->backWithMessage('error', $e->getMessage());
+        } catch (Throwable $e) {
+            report($e);
+            return $this->backWithMessage('error', 'Unable to save the settings at this time. Please try again.');
+        }
+    }
+
+    private function backWithMessage(string $type, string $message): RedirectResponse
+    {
+        return redirect()->route('settings.index')->with('settings_flash', [
+            'type' => $type,
+            'message' => $message,
+        ]);
+    }
+
+    private function destroyNativeSession(): void
+    {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_unset();
+            session_destroy();
+        }
+    }
+}
