@@ -40,22 +40,26 @@ if (empty($_SESSION["csrf_token"])) {
 function generateNextId($conn, $table, $column, $prefix, $pad = 4) {
     $safeTable = preg_replace('/[^A-Za-z0-9_]/', '', $table);
     $safeColumn = preg_replace('/[^A-Za-z0-9_]/', '', $column);
-    $safePrefix = mysqli_real_escape_string($conn, $prefix);
+    $prefixLength = strlen($prefix);
+    $suffixStart = $prefixLength + 1;
 
-    $sql = "
-        SELECT $safeColumn AS latest_id
-        FROM $safeTable
-        WHERE $safeColumn LIKE '{$safePrefix}%'
-        ORDER BY CAST(SUBSTRING($safeColumn, " . (strlen($prefix) + 1) . ") AS UNSIGNED) DESC
+    // Avoid LIKE comparisons against generated prefixes. In the combined schema
+    // a bound/escaped prefix may be treated as utf8mb4_bin while the ID column is
+    // utf8mb4_unicode_ci, producing an Illegal mix of collations error.
+    $stmt = $conn->prepare("
+        SELECT `$safeColumn` AS latest_id
+        FROM `$safeTable`
+        WHERE LEFT(`$safeColumn`, ?) = ?
+        ORDER BY CAST(SUBSTRING(`$safeColumn`, ?) AS UNSIGNED) DESC
         LIMIT 1
-    ";
-
-    $result = mysqli_query($conn, $sql);
-    $row = $result ? mysqli_fetch_assoc($result) : null;
+    ");
+    $stmt->bind_param('isi', $prefixLength, $prefix, $suffixStart);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
     $num = 1;
 
     if ($row && !empty($row["latest_id"])) {
-        $num = ((int)substr($row["latest_id"], strlen($prefix))) + 1;
+        $num = ((int)substr($row["latest_id"], $prefixLength)) + 1;
     }
 
     return $prefix . str_pad($num, $pad, "0", STR_PAD_LEFT);
@@ -631,12 +635,46 @@ function markCertificateEmailStatus($certificateID, $email, $status, $staffID, $
     }
 }
 
-function sendCertificateEmailWithAttachment(array $certificateRow) {
-    $relativePath = ltrim((string)($certificateRow["generatedCertificate"] ?? ""), "/");
-    $absolutePath = realpath(__DIR__ . "/" . $relativePath);
-    $allowedRoot = realpath(__DIR__ . "/generated/certificates");
+function resolveGeneratedCertificatePath($storedPath) {
+    $relativePath = ltrim((string)$storedPath, "/\\");
+    if ($relativePath === "") {
+        return null;
+    }
 
-    if (!$absolutePath || !$allowedRoot || !str_starts_with($absolutePath, $allowedRoot) || !is_file($absolutePath)) {
+    $candidates = [
+        __DIR__ . "/" . $relativePath,
+    ];
+
+    if (function_exists('public_path')) {
+        $candidates[] = public_path($relativePath);
+    }
+
+    $allowedRoots = [realpath(__DIR__ . "/generated/certificates")];
+    if (function_exists('public_path')) {
+        $allowedRoots[] = realpath(public_path("generated/certificates"));
+    }
+    $allowedRoots = array_values(array_filter($allowedRoots));
+
+    foreach ($candidates as $candidate) {
+        $absolutePath = realpath($candidate);
+        if (!$absolutePath || !is_file($absolutePath)) {
+            continue;
+        }
+
+        foreach ($allowedRoots as $allowedRoot) {
+            if ($absolutePath === $allowedRoot || str_starts_with($absolutePath, rtrim($allowedRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
+                return $absolutePath;
+            }
+        }
+    }
+
+    return null;
+}
+
+function sendCertificateEmailWithAttachment(array $certificateRow) {
+    $absolutePath = resolveGeneratedCertificatePath($certificateRow["generatedCertificate"] ?? "");
+
+    if (!$absolutePath) {
         return [false, "Generated certificate file was not found."];
     }
 
@@ -744,6 +782,15 @@ ensureDir(__DIR__ . "/generated/downloads");
     $outputPath = __DIR__ . "/" . $relativePath;
 
     saveImageOutput($image, $outputPath);
+
+    if (function_exists('public_path')) {
+        $publicOutputPath = public_path($relativePath);
+        ensureDir(dirname($publicOutputPath));
+        if (realpath(dirname($publicOutputPath)) !== realpath(dirname($outputPath))) {
+            saveImageOutput($image, $publicOutputPath);
+        }
+    }
+
     imagedestroy($image);
 
     return $relativePath;
@@ -892,11 +939,9 @@ if (isset($_POST["download_certificates"])) {
 
             $downloadRows = [];
             while ($row = $result ? mysqli_fetch_assoc($result) : null) {
-                $relativePath = ltrim((string)$row["generatedCertificate"], "/");
-                $absolutePath = realpath(__DIR__ . "/" . $relativePath);
-                $allowedRoot = realpath(__DIR__ . "/generated/certificates");
+                $absolutePath = resolveGeneratedCertificatePath($row["generatedCertificate"] ?? "");
 
-                if ($absolutePath && $allowedRoot && str_starts_with($absolutePath, $allowedRoot) && is_file($absolutePath)) {
+                if ($absolutePath) {
                     $row["absolutePath"] = $absolutePath;
                     $downloadRows[] = $row;
                 }
@@ -913,7 +958,13 @@ if (isset($_POST["download_certificates"])) {
 
                 markCertificatesDownloaded([$row["certificateID"]], $staffID);
 
-                header("Content-Type: image/png");
+                $contentTypes = [
+                    'png' => 'image/png',
+                    'jpg' => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'pdf' => 'application/pdf',
+                ];
+                header("Content-Type: " . ($contentTypes[$extension] ?? 'application/octet-stream'));
                 header('Content-Disposition: attachment; filename="' . $fileName . '"');
                 header("Content-Length: " . filesize($row["absolutePath"]));
                 readfile($row["absolutePath"]);

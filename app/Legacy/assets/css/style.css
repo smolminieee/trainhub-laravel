@@ -2599,8 +2599,7 @@ body.page-trainer .expertise-open-btn span {
     text-overflow:ellipsis !important;
 }
 body.page-trainer .modal { z-index:13000 !important; background:rgba(15,23,42,.62) !important; }
-body.page-trainer.modal-open #appTopbar,
-body.page-trainer:has(.modal[style*="display: flex"]) #appTopbar { visibility:visible !important; opacity:1 !important; filter:blur(3px) !important; pointer-events:none !important; }
+body.page-trainer.modal-open #appTopbar { visibility:visible !important; opacity:1 !important; filter:none !important; pointer-events:auto !important; }
 body.page-trainer .top-rating :is(.star-wrap,.star-base,.star-fill),
 body.page-trainer .top-rated-panel :is(.star-wrap,.star-base,.star-fill) {
     text-shadow:none !important;
@@ -3496,3 +3495,256 @@ body.trainhub-app :is(.primary-btn,.filter-submit-btn,.save-feedback-btn,.compac
 body.trainhub-app :is(.danger-btn,.danger-action,.danger-inline-btn):hover{opacity:1!important;visibility:visible!important;color:#fff!important}
 body.trainhub-app :is(.danger-btn,.danger-action,.danger-inline-btn):hover svg{stroke:currentColor!important}
 body.trainhub-app :is(.cancel-btn,.reset-filter,.secondary-back-btn):hover{opacity:1!important;visibility:visible!important}
+
+
+/* 2026-09-08 global button hover visibility fix.
+   Keep icons/text readable even when older page-specific hover rules change opacity/color. */
+body.trainhub-app :is(button,[role="button"],a.primary-btn,a.secondary-btn,a.cancel-btn,a.reset-filter,a.filter-btn,a.filter-submit-btn,a.secondary-action-btn,a.secondary-back-btn,a.action-btn,a.inline-action-btn,a.list-filter-btn,a.list-reset-btn):hover {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+body.trainhub-app :is(button,[role="button"],a.primary-btn,a.secondary-btn,a.cancel-btn,a.reset-filter,a.filter-btn,a.filter-submit-btn,a.secondary-action-btn,a.secondary-back-btn,a.action-btn,a.inline-action-btn,a.list-filter-btn,a.list-reset-btn):hover :is(span,strong,b,small,em,svg) {
+    opacity: 1 !important;
+    visibility: visible !important;
+    color: inherit !important;
+}
+body.trainhub-app :is(button,[role="button"],a.primary-btn,a.secondary-btn,a.cancel-btn,a.reset-filter,a.filter-btn,a.filter-submit-btn,a.secondary-action-btn,a.secondary-back-btn,a.action-btn,a.inline-action-btn,a.list-filter-btn,a.list-reset-btn):hover svg {
+    stroke: currentColor;
+}
+
+/* Keep reset/neutral actions readable on hover. */
+body.trainhub-app :is(.reset-filter,.list-reset-btn,.participant-reset-btn,#resetCertificateFilter,.school-tab-reset-btn):hover:not(:disabled){
+    background:#E2E8F0!important;
+    color:#334155!important;
+    border-color:#CBD5E1!important;
+}
+body.trainhub-app :is(.reset-filter,.list-reset-btn,.participant-reset-btn,#resetCertificateFilter,.school-tab-reset-btn):hover :is(svg,span,strong){
+    color:inherit!important;
+    stroke:currentColor!important;
+}
+
+
+/* 2026-09-09 feedback tabs match Teacher/Certificate navigation. */
+body.page-feedback .feedback-workspace-tabs {
+    min-height:55px!important;
+    margin:0 0 18px!important;
+    padding:0 16px!important;
+    border:1px solid var(--app-border)!important;
+    border-radius:var(--app-radius-card)!important;
+    background:var(--app-surface)!important;
+    box-shadow:var(--app-shadow-card)!important;
+    display:flex!important;
+    align-items:stretch!important;
+    gap:22px!important;
+    overflow-x:auto!important;
+}
+body.page-feedback .feedback-workspace-tab {
+    position:relative!important;
+    min-height:54px!important;
+    width:auto!important;
+    padding:0 2px!important;
+    border:0!important;
+    border-bottom:2.5px solid transparent!important;
+    border-radius:0!important;
+    background:transparent!important;
+    color:var(--app-text-muted)!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    flex:0 0 auto!important;
+    font-size:13px!important;
+    font-weight:650!important;
+    white-space:nowrap!important;
+    box-shadow:none!important;
+    transform:none!important;
+}
+body.page-feedback .feedback-workspace-tab:hover {
+    background:transparent!important;
+    border-bottom-color:transparent!important;
+    color:var(--app-text)!important;
+    box-shadow:none!important;
+}
+body.page-feedback .feedback-workspace-tab.active {
+    background:transparent!important;
+    border-color:transparent!important;
+    border-bottom-color:var(--app-primary)!important;
+    color:var(--app-primary)!important;
+    font-weight:800!important;
+    box-shadow:none!important;
+}
+
+/* 2026-09-09 search-field geometry lock (loaded last). */
+body.page-teacher .list-search-box input[type="search"],
+body.page-feedback .form-list-search input[type="search"] {
+    padding-left:48px!important;
+    padding-right:15px!important;
+    border:0!important;
+    box-shadow:none!important;
+    background:transparent!important;
+}
+body.page-teacher .list-search-box svg,
+body.page-feedback .form-list-search svg {
+    left:15px!important;
+    z-index:3!important;
+    pointer-events:none!important;
+}
+body.page-teacher .assign-toggle-btn[data-mode="edit"] {
+    background:#dbeafe!important;
+    color:#1d4ed8!important;
+    border-color:#bfdbfe!important;
+}
+body.page-teacher .assign-toggle-btn[data-mode="edit"]:hover {
+    background:#bfdbfe!important;
+    color:#1e40af!important;
+    border-color:#93c5fd!important;
+}
+
+
+/* =========================================================
+   2026-09-09 FINAL INTERACTION VISIBILITY FIX
+   Hover states stay readable and never hide button text/icons.
+========================================================= */
+body.trainhub-app :is(button,a[class*="btn"],a[class*="button"]):hover {
+    filter:none!important;
+    opacity:1!important;
+    visibility:visible!important;
+}
+body.trainhub-app :is(button,a[class*="btn"],a[class*="button"]):hover :is(span,strong,small,i) {
+    opacity:1!important;
+    visibility:visible!important;
+    color:inherit!important;
+}
+body.trainhub-app :is(.primary-btn,.filter-submit-btn,.filter-btn,.list-filter-btn,.participant-filter-btn,.save-btn,.submit-btn,.save-feedback-btn,.submit-answer-btn,.add-session-btn,.trainer-assign-btn,.add-question-btn,.save-assignment-btn,.trainer-add-page-btn):hover {
+    background:#3B82F6!important;
+    border-color:#3B82F6!important;
+    color:#fff!important;
+}
+body.trainhub-app :is(.cancel-btn,.modal-cancel-btn,.cancel-modal-btn):hover {
+    background:#F1F5F9!important;
+    border-color:#CBD5E1!important;
+    color:#334155!important;
+}
+body.trainhub-app :is(.close-btn,.certificate-list-modal-close):hover {
+    background:#475569!important;
+    border-color:#475569!important;
+    color:#fff!important;
+}
+
+/* Observer assignment: Edit is deliberately light blue; Assign stays primary. */
+body.page-teacher .assign-toggle-btn[data-mode="edit"] {
+    background:#DBEAFE!important;
+    border-color:#BFDBFE!important;
+    color:#1D4ED8!important;
+}
+body.page-teacher .assign-toggle-btn[data-mode="edit"]:hover {
+    background:#BFDBFE!important;
+    border-color:#93C5FD!important;
+    color:#1E40AF!important;
+}
+body.page-teacher .assign-toggle-btn:not([data-mode="edit"]):hover {
+    background:#3B82F6!important;
+    color:#fff!important;
+}
+
+/* Feedback library: equal button lengths with distinct soft semantic colors. */
+body.page-feedback .primary-actions-row,
+body.page-feedback .management-actions-row { display:flex!important; gap:10px!important; align-items:stretch!important; }
+body.page-feedback .primary-actions-row > a,
+body.page-feedback .management-actions-row > button,
+body.page-feedback .management-actions-row > form { flex:1 1 0!important; min-width:0!important; }
+body.page-feedback .management-actions-row > form { display:flex!important; }
+body.page-feedback .management-actions-row > form > button { width:100%!important; min-width:0!important; }
+body.page-feedback .created-form-actions :is(a,button) { min-height:42px!important; border-radius:10px!important; box-shadow:none!important; }
+body.page-feedback .library-preview-btn {background:#EFF6FF!important;border-color:#BFDBFE!important;color:#1D4ED8!important}
+body.page-feedback .library-preview-btn:hover {background:#DBEAFE!important;border-color:#93C5FD!important;color:#1E40AF!important}
+body.page-feedback .library-response-btn {background:#ECFDF5!important;border-color:#A7F3D0!important;color:#047857!important}
+body.page-feedback .library-response-btn:hover {background:#D1FAE5!important;border-color:#6EE7B7!important;color:#065F46!important}
+body.page-feedback .library-anonymous-btn {background:#F5F3FF!important;border-color:#DDD6FE!important;color:#6D28D9!important}
+body.page-feedback .library-anonymous-btn:hover {background:#EDE9FE!important;border-color:#C4B5FD!important;color:#5B21B6!important}
+body.page-feedback .library-pdf-btn {background:#FFF7ED!important;border-color:#FED7AA!important;color:#C2410C!important}
+body.page-feedback .library-pdf-btn:hover {background:#FFEDD5!important;border-color:#FDBA74!important;color:#9A3412!important}
+body.page-feedback .library-edit-btn {background:#E0F2FE!important;border-color:#BAE6FD!important;color:#0369A1!important}
+body.page-feedback .library-edit-btn:hover {background:#BAE6FD!important;border-color:#7DD3FC!important;color:#075985!important}
+body.page-feedback .duplicate-inline-btn {background:#FEF3C7!important;border-color:#FDE68A!important;color:#A16207!important}
+body.page-feedback .duplicate-inline-btn:hover {background:#FDE68A!important;border-color:#FCD34D!important;color:#854D0E!important}
+body.page-feedback .danger-inline-btn {background:#FEF2F2!important;border-color:#FECACA!important;color:#B91C1C!important}
+body.page-feedback .danger-inline-btn:hover {background:#FEE2E2!important;border-color:#FCA5A5!important;color:#991B1B!important}
+
+/* Additional icon/action hover readability. */
+body.trainhub-app .action-btn:hover{background:#3B82F6!important;border-color:#3B82F6!important;color:#fff!important;}
+body.trainhub-app .action-btn.danger-action:hover{background:#EF4444!important;border-color:#EF4444!important;color:#fff!important;}
+body.page-trainer .top-trainer-item:hover{background:#F8FAFC!important;color:#0F172A!important;}
+body.page-trainer .expertise-open-btn:hover{background:#3B82F6!important;color:#fff!important;}
+
+
+/* Page-specific modal locks loaded last so shared styles cannot override them. */
+body.page-trainer .modal{display:none!important;position:fixed!important;inset:0!important;z-index:13000!important;align-items:center!important;justify-content:center!important;padding:20px!important;overflow-y:auto!important;background:rgba(15,23,42,.48)!important;backdrop-filter:none!important;}
+body.page-trainer .modal.is-open{display:flex!important;}
+body.page-trainer .modal[hidden]{display:none!important;}
+body.page-trainer .modal-box{position:relative!important;z-index:13001!important;max-height:90vh!important;overflow-y:auto!important;}
+body.page-feedback .feedback-edit-modal{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;margin:0!important;padding:24px!important;display:none!important;align-items:center!important;justify-content:center!important;overflow:auto!important;z-index:13000!important;background:rgba(15,23,42,.50)!important;backdrop-filter:none!important;}
+body.page-feedback .feedback-edit-modal[aria-hidden="false"]{display:flex!important;}
+body.page-feedback .feedback-edit-modal-box{width:min(1080px,96vw)!important;max-height:92vh!important;overflow-y:auto!important;margin:0!important;border-radius:18px!important;}
+body.page-feedback .confirm-modal-btn{background:#16A34A!important;border-color:#16A34A!important;color:#fff!important;}
+body.page-feedback .confirm-modal-btn:hover{background:#22C55E!important;border-color:#22C55E!important;color:#fff!important;}
+body.page-feedback .confirm-modal-btn.danger-confirm{background:#DC2626!important;border-color:#DC2626!important;color:#fff!important;}
+body.page-feedback .confirm-modal-btn.danger-confirm:hover{background:#EF4444!important;border-color:#EF4444!important;color:#fff!important;}
+
+/* =========================================================
+   2026-09-09 FIX8 — Certificate Email button final colour lock
+   Keep Email Certificates soft green at rest and on hover.
+   This rule intentionally lives after the shared button rules.
+========================================================= */
+body.trainhub-app.page-certificate .certificate-list-modal-body .download-toolbar-actions button.send-selected-btn.secondary-btn,
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn {
+    background: #DCFCE7 !important;
+    border: 1px solid #86EFAC !important;
+    color: #166534 !important;
+    -webkit-text-fill-color: #166534 !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    filter: none !important;
+}
+
+body.trainhub-app.page-certificate .certificate-list-modal-body .download-toolbar-actions button.send-selected-btn.secondary-btn::before,
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn::before {
+    color: #166534 !important;
+    -webkit-text-fill-color: #166534 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+body.trainhub-app.page-certificate .certificate-list-modal-body .download-toolbar-actions button.send-selected-btn.secondary-btn:hover:not(:disabled),
+body.trainhub-app.page-certificate .certificate-list-modal-body .download-toolbar-actions button.send-selected-btn.secondary-btn:focus-visible,
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn:hover:not(:disabled),
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn:focus-visible {
+    background: #BBF7D0 !important;
+    border-color: #4ADE80 !important;
+    color: #14532D !important;
+    -webkit-text-fill-color: #14532D !important;
+    box-shadow: 0 5px 12px rgba(22, 101, 52, 0.10) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    filter: none !important;
+}
+
+body.trainhub-app.page-certificate .certificate-list-modal-body .download-toolbar-actions button.send-selected-btn.secondary-btn:hover::before,
+body.trainhub-app.page-certificate .certificate-list-modal-body .download-toolbar-actions button.send-selected-btn.secondary-btn:focus-visible::before,
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn:hover::before,
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn:focus-visible::before {
+    color: #14532D !important;
+    -webkit-text-fill-color: #14532D !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn:hover :is(span,strong,b,small,em,svg),
+body.trainhub-app.page-certificate .download-toolbar-actions button.send-selected-btn.secondary-btn:focus-visible :is(span,strong,b,small,em,svg) {
+    color: #14532D !important;
+    -webkit-text-fill-color: #14532D !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}

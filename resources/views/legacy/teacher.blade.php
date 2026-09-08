@@ -16,8 +16,14 @@
     <div class="dashboard-header">
         <div>
             <h1>Teacher Management</h1>
-            <p>View schools by category, open a school to see its guru list and new teachers, or manage all new teacher assignments.</p>
+            <p>View lists of schools, teachers and new teachers.</p>
         </div>
+        <?php if (!empty($selectedSchool) && $selectedSchoolCategory !== '') { ?>
+            <a href="teacher.php?tab=<?php echo e($selectedSchoolCategory); ?>" class="secondary-back-btn header-back-to-school">
+                <svg viewBox="0 0 24 24"><path d="M19 12H5" /><path d="M12 19L5 12L12 5" /></svg>
+                Back to School List
+            </a>
+        <?php } ?>
     </div>
 
     <?php if (!empty($errorMessage)) { ?>
@@ -75,6 +81,7 @@
         <button type="button" class="teacher-tab-button <?php echo $activeTab === 'primary' ? 'active' : ''; ?>" data-tab="primary">Primary School</button>
         <button type="button" class="teacher-tab-button <?php echo $activeTab === 'preschool' ? 'active' : ''; ?>" data-tab="preschool">Preschool</button>
         <button type="button" class="teacher-tab-button <?php echo $activeTab === 'others' ? 'active' : ''; ?>" data-tab="others">Others</button>
+        <button type="button" class="teacher-tab-button <?php echo $activeTab === 'organisations' ? 'active' : ''; ?>" data-tab="organisations">Organisations</button>
         <button type="button" class="teacher-tab-button <?php echo $activeTab === 'new_teacher' ? 'active' : ''; ?>" data-tab="new_teacher">New Teacher</button>
     </div>
 
@@ -100,10 +107,6 @@
                                 <p><?php echo e($selectedSchool['schoolID']); ?><?php echo !empty($selectedSchool['schoolAddress']) ? ' • ' . e($selectedSchool['schoolAddress']) : ''; ?></p>
                             </div>
                         </div>
-                        <a href="teacher.php?tab=<?php echo e($categoryKey); ?>" class="secondary-back-btn">
-                            <svg viewBox="0 0 24 24"><path d="M19 12H5" /><path d="M12 19L5 12L12 5" /></svg>
-                            Back to School List
-                        </a>
                     </div>
 
                     <div class="school-detail-grid">
@@ -114,7 +117,7 @@
                                         <svg viewBox="0 0 24 24"><path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12Z" /><path d="M4.5 20C5.3 16.8 8 15 12 15C16 15 18.7 16.8 19.5 20" /></svg>
                                     </div>
                                     <div>
-                                        <h2>Teacher / Guru List</h2>
+                                        <h2>Teacher List</h2>
                                         <p>Existing teachers under this selected school.</p>
                                     </div>
                                 </div>
@@ -132,7 +135,7 @@
                                     </div>
                                     <div>
                                         <h2>New Teacher in This School</h2>
-                                        <p>New teacher list for this selected school. Assignment is managed in the New Teacher tab.</p>
+                                        <p>New teachers under this selected school.</p>
                                     </div>
                                 </div>
                             </div>
@@ -209,6 +212,42 @@
             </section>
         <?php } ?>
 
+        <section class="teacher-tab-panel <?php echo $activeTab === 'organisations' ? 'active' : ''; ?>" data-panel="organisations">
+            <div class="panel organisation-panel">
+                <div class="panel-header course-panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon">
+                            <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V5h10v16"/><path d="M15 9h4v12"/><path d="M8 9h4M8 13h4M8 17h4"/></svg>
+                        </div>
+                        <div>
+                            <h2>Organisation List</h2>
+                            <p>View registered organisation details.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <?php if (empty($organizations)) { ?>
+                    <div class="empty-state">No organisation found.</div>
+                <?php } else { ?>
+                    <div class="organisation-list">
+                        <?php foreach ($organizations as $organisation) { ?>
+                            <article class="organisation-card">
+                                <div class="organisation-avatar"><?php echo e(strtoupper(substr((string)$organisation['OrganizationName'], 0, 1))); ?></div>
+                                <div class="organisation-details">
+                                    <h3><?php echo e($organisation['OrganizationName']); ?></h3>
+                                    <div class="organisation-meta">
+                                        <span><strong>Phone</strong><?php echo e($organisation['PhoneNumber'] ?: '-'); ?></span>
+                                        <span><strong>Registered</strong><?php echo e($organisation['RegisterDate'] ?: '-'); ?></span>
+                                    </div>
+                                    <p><?php echo e($organisation['OrganizationAddress'] ?: 'No address added.'); ?></p>
+                                </div>
+                            </article>
+                        <?php } ?>
+                    </div>
+                <?php } ?>
+            </div>
+        </section>
+
         <section class="teacher-tab-panel <?php echo $activeTab === 'new_teacher' ? 'active' : ''; ?>" data-panel="new_teacher">
             <div class="panel">
                 <div class="panel-header course-panel-header">
@@ -218,7 +257,7 @@
                         </div>
                         <div>
                             <h2>All New Teacher List</h2>
-                            <p>This tab stays outside the school category tabs for easier assignment management.</p>
+                            
                         </div>
                     </div>
                 </div>
@@ -226,7 +265,7 @@
                 <div class="list-toolbar" aria-label="New teacher list search and filter">
                     <div class="list-search-box">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20L16.65 16.65" /></svg>
-                        <input type="search" id="newTeacherListSearch" placeholder="Search name, ID, school, observer or email..." autocomplete="off">
+                        <input type="search" id="newTeacherListSearch" placeholder="Search name, school, observer or email..." autocomplete="off">
                     </div>
 
                     <select id="newTeacherListFilter" class="list-filter-select" aria-label="Filter new teachers">
@@ -361,6 +400,12 @@ function setupListFilter(options) {
     });
 }
 
+// Keep assignment dialogs at <body> level. This prevents card/list overflow or
+// stacking contexts from trapping a fixed observer-assignment popup.
+document.querySelectorAll('.assignment-form').forEach(function(form) {
+    if (form.parentElement !== document.body) document.body.appendChild(form);
+});
+
 setupListFilter({
     searchInputId: 'newTeacherListSearch',
     filterSelectId: 'newTeacherListFilter',
@@ -381,7 +426,13 @@ setupListFilter({
 function openAssignmentModal(targetId) {
     const form = document.getElementById(targetId);
     if (!form) return;
+    form.hidden = false;
     form.classList.add('show-assignment-form');
+    form.style.setProperty('display', 'flex', 'important');
+    form.setAttribute('aria-hidden', 'false');
+    form.scrollTop = 0;
+    const shell = form.querySelector('.assignment-modal-shell');
+    if (shell) shell.scrollTop = 0;
     document.body.classList.add('modal-open');
 }
 
@@ -389,15 +440,19 @@ function closeAssignmentModal(targetId) {
     const form = document.getElementById(targetId);
     if (!form) return;
     form.classList.remove('show-assignment-form');
+    form.style.setProperty('display', 'none', 'important');
+    form.setAttribute('aria-hidden', 'true');
     if (!document.querySelector('.assignment-form.show-assignment-form')) {
         document.body.classList.remove('modal-open');
     }
 }
 
-document.querySelectorAll('.assign-toggle-btn').forEach(function(button) {
-    button.addEventListener('click', function() {
-        openAssignmentModal(button.dataset.target);
-    });
+// Delegation keeps Edit/Assign working even if a card is redrawn by filtering.
+document.addEventListener('click', function(event) {
+    const button = event.target.closest('.assign-toggle-btn');
+    if (!button) return;
+    event.preventDefault();
+    openAssignmentModal(button.dataset.target);
 });
 
 document.querySelectorAll('[data-close-target]').forEach(function(button) {
@@ -471,6 +526,30 @@ document.querySelectorAll('.observer-assignment-form').forEach(function(form) {
     externalSelect.addEventListener('change', function() {
         filterSameTeacher();
         syncRequiredDate();
+    });
+
+    form.addEventListener('submit', function(event) {
+        if (!observerSelect.value && !externalSelect.value) {
+            event.preventDefault();
+            if (typeof openGlobalNotice === 'function') {
+                openGlobalNotice('Please select an observer or external observer before saving.', 'error');
+            }
+            return;
+        }
+        // A selected role is always saved as active. Historical rows are only
+        // marked inactive when that role is explicitly cleared during Edit.
+        const observerStatus = form.querySelector('input[name="observerStatus"]');
+        const observerAssignmentStatus = form.querySelector('input[name="observerAssignmentStatus"]');
+        const externalStatus = form.querySelector('input[name="externalStatus"]');
+        const externalAssignmentStatus = form.querySelector('input[name="externalAssignmentStatus"]');
+        if (observerSelect.value) {
+            if (observerStatus) observerStatus.value = 'active';
+            if (observerAssignmentStatus) observerAssignmentStatus.value = 'active';
+        }
+        if (externalSelect.value) {
+            if (externalStatus) externalStatus.value = 'active';
+            if (externalAssignmentStatus) externalAssignmentStatus.value = 'active';
+        }
     });
 
     filterSameTeacher();

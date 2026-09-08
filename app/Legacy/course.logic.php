@@ -88,8 +88,12 @@ function nextID($conn, $table, $column, $prefix) {
         throw new InvalidArgumentException("Unsupported ID generator target.");
     }
 
-    $stmt = $conn->prepare("SELECT `$column` AS id FROM `$table` WHERE `$column` LIKE CONCAT(?, '%')");
-    $stmt->bind_param("s", $prefix);
+    $prefixLength = strlen($prefix);
+    // Avoid LIKE with a bound parameter: some combined-schema environments
+    // bind the parameter with a binary collation and MySQL then raises an
+    // "Illegal mix of collations" error during ID generation.
+    $stmt = $conn->prepare("SELECT `$column` AS id FROM `$table` WHERE LEFT(`$column`, ?) = ?");
+    $stmt->bind_param("is", $prefixLength, $prefix);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -176,21 +180,33 @@ function htmlDatetimeLocal($value) {
     return $time ? date('Y-m-d\TH:i', $time) : "";
 }
 
+function validateQRExpiryWindow($expiryTime, $sessionDate, $startTime, $endTime) {
+    if ($expiryTime === null) return;
+
+    $sessionStart = new DateTimeImmutable($sessionDate . ' ' . $startTime);
+    $sessionEnd = new DateTimeImmutable($sessionDate . ' ' . $endTime);
+    $expiry = new DateTimeImmutable($expiryTime);
+    $now = new DateTimeImmutable('now');
+    $minExpiry = $sessionStart->modify('-7 days');
+    $maxExpiry = $sessionEnd->modify('+7 days');
+
+    if ($expiry <= $now) {
+        throw new Exception('QR expiry date and time must be in the future.');
+    }
+    if ($expiry < $minExpiry || $expiry > $maxExpiry) {
+        throw new Exception('QR expiry must be within 7 days before or after the session date and time.');
+    }
+}
+
 function saveSessionQR($conn, $sessionID, $sessionDate, $endTime, $expiryInput = null, $startTime = null) {
     $attendanceLink = buildAttendanceLink($sessionID);
     $qrCode = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" . urlencode($attendanceLink);
     $expiryTime = mysqlDatetimeFromLocal($expiryInput ?? "");
 
-    if ($expiryTime === null) {
-        $expiryTime = $sessionDate . " " . $endTime . ":00";
-    }
-
-    if ($startTime !== null && $startTime !== "") {
-        $sessionStart = new DateTimeImmutable($sessionDate . " " . $startTime);
-        $qrExpiryDate = new DateTimeImmutable($expiryTime);
-        if ($qrExpiryDate < $sessionStart) {
-            throw new Exception("QR expiry date and time must be after the session start time.");
-        }
+    // NULL intentionally means no expiry. AttendanceController already treats
+    // a NULL expiry as available until Staff EDU explicitly sets one later.
+    if ($expiryTime !== null && $startTime !== null && $startTime !== '') {
+        validateQRExpiryWindow($expiryTime, $sessionDate, $startTime, $endTime);
     }
 
     $stmt = $conn->prepare("SELECT qrID FROM qr_session WHERE sessionID = ? LIMIT 1");
@@ -244,7 +260,7 @@ function insertTrainingSession($conn, $courseID, array $sessionData) {
         $sessionID = nextID($conn, "course_session", "sessionID", "CS");
     }
 
-    $stmt = $conn->prepare("INSERT INTO course_session (sessionID, sessionDate, sessionName, startTime, endTime, location, courseID, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+    $stmt = $conn->prepare("INSERT INTO course_session (sessionID, sessionDate, sessionName, startTime, endTime, location, courseID) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $stmt->bind_param("sssssss", $sessionID, $sessionDate, $sessionName, $startTime, $endTime, $location, $courseID);
     $stmt->execute();
 
@@ -405,7 +421,7 @@ function refreshTrainingStatuses($conn, $courseID = null) {
 
         $newStatus = calculateTrainingStatusFromSessionRange($row["firstStart"], $row["lastEnd"]);
         if ($newStatus !== strtolower((string)$row["currentStatus"])) {
-            $stmt = $conn->prepare("UPDATE course SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE courseID = ?");
+            $stmt = $conn->prepare("UPDATE course SET status = ? WHERE courseID = ?");
             $stmt->bind_param("ss", $newStatus, $row["courseID"]);
             $stmt->execute();
         }
@@ -759,6 +775,15 @@ function redirectTo($url) {
     exit();
 }
 
+function buildCourseAttendanceReturnUrl($courseID, $sessionID = "") {
+    $url = "course.php?view=" . urlencode((string)$courseID);
+    $sessionID = trim((string)$sessionID);
+    if ($sessionID !== "") {
+        $url .= "&attendanceSession=" . urlencode($sessionID);
+    }
+    return $url . "#attendanceParticipants";
+}
+
 setCurrentStaff($conn, $staffID, $staffName);
 
 $message = $_SESSION["flash_message"] ?? "";
@@ -823,7 +848,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $conn->begin_transaction();
             $inTransaction = true;
 
-            $stmt = $conn->prepare("\n                INSERT INTO course (\n                    courseID, courseName, description, capacity, price,\n                    courseCategory, targetAudience, otherTargetAudience,\n                    staffAttendeeIDs, staffAttendeeAssignedBy, staffAttendeeAssignedDate,\n                    courseRating, status, poster, mode, onlineLink,\n                    whatsappGroup, closeDate, organiserName, courseType,\n                    created_at, updated_at\n                )\n                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\n            ");
+            $stmt = $conn->prepare("\n                INSERT INTO course (\n                    courseID, courseName, description, capacity, price,\n                    courseCategory, targetAudience, otherTargetAudience,\n                    staffAttendeeIDs, staffAttendeeAssignedBy, staffAttendeeAssignedDate,\n                    courseRating, status, poster, mode, onlineLink,\n                    whatsappGroup, closeDate, organiserName, courseType\n                )\n                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n            ");
             $stmt->bind_param(
                 "sssidssssssdssssssss",
                 $courseID,
@@ -903,7 +928,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $conn->begin_transaction();
             $inTransaction = true;
 
-            $stmt = $conn->prepare("\n                UPDATE course\n                SET courseName = ?, description = ?, capacity = ?, price = ?,\n                    courseCategory = ?, targetAudience = ?, otherTargetAudience = ?,\n                    staffAttendeeIDs = ?, staffAttendeeAssignedBy = ?, staffAttendeeAssignedDate = ?,\n                    poster = ?, mode = ?, onlineLink = ?, whatsappGroup = ?, closeDate = ?,\n                    organiserName = ?, courseType = ?, updated_at = CURRENT_TIMESTAMP\n                WHERE courseID = ?\n            ");
+            $stmt = $conn->prepare("\n                UPDATE course\n                SET courseName = ?, description = ?, capacity = ?, price = ?,\n                    courseCategory = ?, targetAudience = ?, otherTargetAudience = ?,\n                    staffAttendeeIDs = ?, staffAttendeeAssignedBy = ?, staffAttendeeAssignedDate = ?,\n                    poster = ?, mode = ?, onlineLink = ?, whatsappGroup = ?, closeDate = ?,\n                    organiserName = ?, courseType = ?\n                WHERE courseID = ?\n            ");
             $stmt->bind_param(
                 "ssidssssssssssssss",
                 $courseName,
@@ -1010,7 +1035,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $sessionCourse = $stmt->get_result()->fetch_assoc();
             if (!$sessionCourse) throw new Exception("Session record was not found.");
 
-            $stmt = $conn->prepare("UPDATE course_session SET sessionName = ?, sessionDate = ?, startTime = ?, endTime = ?, location = ?, updated_at = CURRENT_TIMESTAMP WHERE sessionID = ?");
+            $stmt = $conn->prepare("UPDATE course_session SET sessionName = ?, sessionDate = ?, startTime = ?, endTime = ?, location = ? WHERE sessionID = ?");
             $stmt->bind_param("ssssss", $sessionName, $sessionDate, $startTime, $endTime, $location, $sessionID);
             $stmt->execute();
 
@@ -1061,29 +1086,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($action === "approve_attendance") {
             $courseID = trim((string)($_POST["courseID"] ?? ""));
+            $attendanceSessionID = trim((string)($_POST["attendanceSessionID"] ?? ""));
             $participantType = $_POST["participantType"] ?? "";
             $attendanceID = $_POST["attendanceID"] ?? 0;
             approveAttendance($conn, $participantType, $attendanceID, $staffID);
-            redirectTo("course.php?view=" . urlencode($courseID));
+            redirectTo(buildCourseAttendanceReturnUrl($courseID, $attendanceSessionID));
         }
 
         if ($action === "unapprove_attendance") {
             $courseID = trim((string)($_POST["courseID"] ?? ""));
+            $attendanceSessionID = trim((string)($_POST["attendanceSessionID"] ?? ""));
             $participantType = $_POST["participantType"] ?? "";
             $attendanceID = $_POST["attendanceID"] ?? 0;
             markAttendanceNotApproved($conn, $participantType, $attendanceID, $staffID);
-            redirectTo("course.php?view=" . urlencode($courseID));
+            redirectTo(buildCourseAttendanceReturnUrl($courseID, $attendanceSessionID));
         }
 
         if ($action === "save_attendance_remark") {
             $courseID = trim((string)($_POST["courseID"] ?? ""));
+            $attendanceSessionID = trim((string)($_POST["attendanceSessionID"] ?? ""));
             $participantType = $_POST["participantType"] ?? "";
             $attendanceID = $_POST["attendanceID"] ?? 0;
             $remarks = $_POST["remarks"] ?? "";
             saveAttendanceRemark($conn, $participantType, $attendanceID, $remarks);
             $_SESSION["flash_message"] = "Attendance remarks saved successfully.";
             $_SESSION["flash_type"] = "success";
-            redirectTo("course.php?view=" . urlencode($courseID));
+            redirectTo(buildCourseAttendanceReturnUrl($courseID, $attendanceSessionID));
         }
 
         throw new Exception("Unsupported training action.");
@@ -1102,7 +1130,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             redirectTo("course.php?sessions=" . urlencode($returnID));
         }
         if (in_array($action, ["approve_attendance", "unapprove_attendance", "save_attendance_remark"], true) && $returnID !== "") {
-            redirectTo("course.php?view=" . urlencode($returnID));
+            $returnSessionID = trim((string)($_POST["attendanceSessionID"] ?? ""));
+            redirectTo(buildCourseAttendanceReturnUrl($returnID, $returnSessionID));
         }
         redirectTo("course.php");
     }
@@ -1210,6 +1239,18 @@ if ($safeActiveCourseID !== '' && in_array($activeMode, ['view', 'sessions'], tr
     ");
     while ($session = mysqli_fetch_assoc($sessionQuery)) {
         $sessionsByTraining[$session["courseID"]][] = $session;
+    }
+}
+
+$selectedAttendanceSessionID = trim((string)($_GET["attendanceSession"] ?? ""));
+if ($safeActiveCourseID !== '' && $activeMode === 'view') {
+    $availableAttendanceSessions = $sessionsByTraining[$activeCourseID] ?? [];
+    $availableAttendanceSessionIDs = array_map(
+        static fn(array $row): string => (string)($row["sessionID"] ?? ""),
+        $availableAttendanceSessions
+    );
+    if ($selectedAttendanceSessionID === '' || !in_array($selectedAttendanceSessionID, $availableAttendanceSessionIDs, true)) {
+        $selectedAttendanceSessionID = (string)($availableAttendanceSessionIDs[0] ?? '');
     }
 }
 

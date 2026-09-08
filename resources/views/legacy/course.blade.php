@@ -27,7 +27,7 @@
     <div class="dashboard-header">
         <div>
             <h1>Training Management</h1>
-            <p>Manage trainings, sessions, trainers, QR attendance and participants.</p>
+            <p>Manage trainings and participants.</p>
         </div>
         <?php if ($activeMode === "") { ?>
             <button class="primary-btn" onclick="openModal('addTrainingModal')">+ Add Training</button>
@@ -79,7 +79,7 @@
                     <div class="detail-box detail-full"><span>Poster</span><strong><?php if (!empty($course["poster"])) { ?><a href="<?php echo h($course["poster"]); ?>" target="_blank">View Poster</a><?php } else { echo "-"; } ?></strong></div>
                 </div>
 
-                <div class="participant-section compact-participant-section" data-participant-filter-root>
+                <div class="participant-section compact-participant-section" id="attendanceParticipants" data-participant-filter-root>
                     <div class="participant-header compact-heading">
                         <div>
                             <h3>Participants by Session</h3>
@@ -111,7 +111,7 @@
                     <?php if (count($courseSessions) > 0) { ?>
                         <div class="session-tabs" role="tablist">
                             <?php foreach ($courseSessions as $index => $session) { ?>
-                                <button type="button" class="session-tab-btn <?php echo $index === 0 ? 'active' : ''; ?>" data-session-tab="sessionPane_<?php echo h($session["sessionID"]); ?>">
+                                <button type="button" class="session-tab-btn <?php echo $selectedAttendanceSessionID === (string)$session["sessionID"] ? 'active' : ''; ?>" data-session-id="<?php echo h($session["sessionID"]); ?>" data-session-tab="sessionPane_<?php echo h($session["sessionID"]); ?>">
                                     <?php echo h($session["sessionName"] ?: "Session " . ($index + 1)); ?>
                                     <small><?php echo h(date('d M Y', strtotime($session["sessionDate"]))); ?></small>
                                 </button>
@@ -120,7 +120,7 @@
 
                         <div class="session-tab-panes">
                             <?php foreach ($courseSessions as $index => $session) { ?>
-                                <section class="session-tab-pane <?php echo $index === 0 ? 'active' : ''; ?>" id="sessionPane_<?php echo h($session["sessionID"]); ?>" data-session-pane>
+                                <section class="session-tab-pane <?php echo $selectedAttendanceSessionID === (string)$session["sessionID"] ? 'active' : ''; ?>" id="sessionPane_<?php echo h($session["sessionID"]); ?>" data-session-pane>
                                     <div class="session-pane-header">
                                         <div>
                                             <h4><?php echo h($session["sessionName"] ?: "Session"); ?></h4>
@@ -159,6 +159,7 @@
                                                                 type="button"
                                                                 class="attendance-remark-btn<?php echo trim((string)($attendance['remarks'] ?? '')) !== '' ? ' has-remark' : ''; ?>"
                                                                 data-course-id="<?php echo h($course["courseID"]); ?>"
+                                                                data-session-id="<?php echo h($session["sessionID"]); ?>"
                                                                 data-participant-type="<?php echo h($participantType); ?>"
                                                                 data-attendance-id="<?php echo h($attendance["attendanceID"]); ?>"
                                                                 data-participant-name="<?php echo h($participant["participantName"]); ?>"
@@ -169,6 +170,7 @@
                                                             <form method="POST" class="attendance-status-form">
                                                                 <input type="hidden" name="action" value="unapprove_attendance">
                                                                 <input type="hidden" name="courseID" value="<?php echo h($course["courseID"]); ?>">
+                                                                <input type="hidden" name="attendanceSessionID" value="<?php echo h($session["sessionID"]); ?>">
                                                                 <input type="hidden" name="participantType" value="<?php echo h($participantType); ?>">
                                                                 <input type="hidden" name="attendanceID" value="<?php echo h($attendance["attendanceID"]); ?>">
                                                                 <button type="submit" class="not-approve-btn">Set Not Approved</button>
@@ -180,6 +182,7 @@
                                                                 type="button"
                                                                 class="attendance-remark-btn<?php echo trim((string)($attendance['remarks'] ?? '')) !== '' ? ' has-remark' : ''; ?>"
                                                                 data-course-id="<?php echo h($course["courseID"]); ?>"
+                                                                data-session-id="<?php echo h($session["sessionID"]); ?>"
                                                                 data-participant-type="<?php echo h($participantType); ?>"
                                                                 data-attendance-id="<?php echo h($attendance["attendanceID"]); ?>"
                                                                 data-participant-name="<?php echo h($participant["participantName"]); ?>"
@@ -190,6 +193,7 @@
                                                             <form method="POST" class="attendance-status-form">
                                                                 <input type="hidden" name="action" value="approve_attendance">
                                                                 <input type="hidden" name="courseID" value="<?php echo h($course["courseID"]); ?>">
+                                                                <input type="hidden" name="attendanceSessionID" value="<?php echo h($session["sessionID"]); ?>">
                                                                 <input type="hidden" name="participantType" value="<?php echo h($participantType); ?>">
                                                                 <input type="hidden" name="attendanceID" value="<?php echo h($attendance["attendanceID"]); ?>">
                                                                 <button type="submit" class="approve-btn">Approve</button>
@@ -230,7 +234,7 @@
                 <?php renderTrainingFormFields($course, $staffOptions); ?>
                 <div class="page-form-actions">
                     <a href="course.php?view=<?php echo urlencode($course["courseID"]); ?>" class="cancel-btn">Cancel</a>
-                    <button type="submit" class="primary-btn">Save Training</button>
+                    <button type="submit" class="primary-btn">Save</button>
                 </div>
             </form>
         </section>
@@ -283,11 +287,11 @@
 
                                         <div class="form-grid session-edit-grid">
                                             <div><label>Session Name</label><input type="text" name="sessionName" value="<?php echo h($session["sessionName"]); ?>"></div>
-                                            <div><label>Session Date</label><input type="date" name="sessionDate" min="<?php echo date('Y-m-d'); ?>" value="<?php echo h($session["sessionDate"]); ?>" required></div>
-                                            <div><label>Start Time</label><input type="time" name="startTime" value="<?php echo h(substr($session["startTime"], 0, 5)); ?>" required></div>
-                                            <div><label>End Time</label><input type="time" name="endTime" value="<?php echo h(substr($session["endTime"], 0, 5)); ?>" required><small class="field-error" data-time-error></small></div>
+                                            <div class="form-group"><label>Session Date</label><input type="date" name="sessionDate" min="<?php echo date('Y-m-d'); ?>" value="<?php echo h($session["sessionDate"]); ?>" required><small class="field-error"></small></div>
+                                            <div class="form-group"><label>Start Time</label><input type="time" name="startTime" value="<?php echo h(substr($session["startTime"], 0, 5)); ?>" required><small class="field-error"></small></div>
+                                            <div class="form-group"><label>End Time</label><input type="time" name="endTime" value="<?php echo h(substr($session["endTime"], 0, 5)); ?>" required><small class="field-error" data-time-error></small></div>
                                             <div><label>Location</label><input type="text" name="location" value="<?php echo h($session["location"]); ?>"></div>
-                                            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry" value="<?php echo h(htmlDatetimeLocal($session["expiryTime"])); ?>"><small class="field-error" data-qr-error></small></div>
+                                            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry" value="<?php echo h(htmlDatetimeLocal($session["expiryTime"])); ?>"><small class="field-error" data-qr-error></small><small class="qr-expiry-help">Optional. Leave blank for no expiry; if set, choose within 7 days of the session.</small></div>
                                             <div class="form-full"><label>Assigned Trainer</label><div class="checkbox-grid trainer-checkbox-grid"><?php renderTrainerCheckboxes($trainerOptions, $session["trainerPairs"] ?? ""); ?></div></div>
                                         </div>
                                     </form>
@@ -319,11 +323,11 @@
                         <input type="hidden" name="courseID" value="<?php echo h($course["courseID"]); ?>">
                         <div class="form-grid session-grid">
                             <div><label>Session Name</label><input type="text" name="sessionName" placeholder="Day 1 / Morning Session"></div>
-                            <div><label>Session Date</label><input type="date" name="sessionDate" min="<?php echo date('Y-m-d'); ?>" required></div>
-                            <div><label>Start Time</label><input type="time" name="startTime" required></div>
-                            <div><label>End Time</label><input type="time" name="endTime" required><small class="field-error" data-time-error></small></div>
+                            <div class="form-group"><label>Session Date</label><input type="date" name="sessionDate" min="<?php echo date('Y-m-d'); ?>" required><small class="field-error"></small></div>
+                            <div class="form-group"><label>Start Time</label><input type="time" name="startTime" required><small class="field-error"></small></div>
+                            <div class="form-group"><label>End Time</label><input type="time" name="endTime" required><small class="field-error" data-time-error></small></div>
                             <div><label>Location</label><input type="text" name="location" placeholder="Hall / Google Meet"></div>
-                            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry" min="<?php echo h($nowLocal); ?>"><small class="field-error" data-qr-error></small></div>
+                            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry"><small class="field-error" data-qr-error></small><small class="qr-expiry-help">Optional. Leave blank for no expiry; if set, choose within 7 days of the session.</small></div>
                             <div class="form-full"><label>Assign Trainer</label><div class="checkbox-grid trainer-checkbox-grid"><?php foreach ($trainerOptions as $trainer) { ?><label class="checkbox-pill trainer-check-pill"><input type="checkbox" name="trainerIDs[]" value="<?php echo h($trainer["trainerID"]); ?>"><span><?php echo h($trainer["trainerName"]); ?></span></label><?php } ?></div></div>
                         </div>
                         <div class="page-form-actions"><button type="submit" class="primary-btn">Add Session</button></div>
@@ -455,11 +459,11 @@
                         <div class="form-grid session-grid">
                             <input type="hidden" name="sessionID[]" value="">
                             <div><label>Session Name</label><input type="text" name="sessionName[]" placeholder="Morning Session / Day 1"></div>
-                            <div><label>Session Date</label><input type="date" name="sessionDate[]" min="<?php echo h($today); ?>" required></div>
-                            <div><label>Start Time</label><input type="time" name="startTime[]" required></div>
-                            <div><label>End Time</label><input type="time" name="endTime[]" required><small class="field-error" data-time-error></small></div>
+                            <div class="form-group"><label>Session Date</label><input type="date" name="sessionDate[]" min="<?php echo h($today); ?>" required><small class="field-error"></small></div>
+                            <div class="form-group"><label>Start Time</label><input type="time" name="startTime[]" required><small class="field-error"></small></div>
+                            <div class="form-group"><label>End Time</label><input type="time" name="endTime[]" required><small class="field-error" data-time-error></small></div>
                             <div><label>Location</label><input type="text" name="location[]" placeholder="Hall / Google Meet"></div>
-                            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry[]" min="<?php echo h($nowLocal); ?>"><small class="field-error" data-qr-error></small></div>
+                            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry[]"><small class="field-error" data-qr-error></small><small class="qr-expiry-help">Optional. Leave blank for no expiry; if set, choose within 7 days of the session.</small></div>
                             <div class="form-full trainer-picker" data-index="0">
                                 <label>Assign Trainer</label>
                                 <div class="trainer-picker-row">
@@ -482,7 +486,7 @@
 
             <div class="modal-actions">
                 <button type="button" class="cancel-btn" onclick="closeModal('addTrainingModal')">Cancel</button>
-                <button type="submit" class="primary-btn">Save Training</button>
+                <button type="submit" class="primary-btn">Save</button>
             </div>
         </form>
     </div>
@@ -499,6 +503,7 @@
         <form method="POST" class="attendance-remark-form" id="attendanceRemarkForm">
             <input type="hidden" name="action" value="save_attendance_remark">
             <input type="hidden" name="courseID" id="remarkCourseID" value="">
+            <input type="hidden" name="attendanceSessionID" id="remarkAttendanceSessionID" value="">
             <input type="hidden" name="participantType" id="remarkParticipantType" value="">
             <input type="hidden" name="attendanceID" id="remarkAttendanceID" value="">
 
@@ -542,12 +547,23 @@ let sessionCounter = 1;
 
 function openModal(id) {
     const modal = document.getElementById(id);
-    if (modal) { modal.style.display = 'flex'; window.trainhubSyncModalState?.(); }
+    if (!modal) return;
+    modal.hidden = false;
+    modal.style.setProperty('display', 'flex', 'important');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    window.trainhubSyncModalState?.();
 }
 
 function closeModal(id) {
     const modal = document.getElementById(id);
-    if (modal) { modal.style.display = 'none'; window.trainhubSyncModalState?.(); }
+    if (!modal) return;
+    modal.style.setProperty('display', 'none', 'important');
+    modal.setAttribute('aria-hidden', 'true');
+    if (!Array.from(document.querySelectorAll('.page-course .modal')).some(m => m !== modal && getComputedStyle(m).display !== 'none')) {
+        document.body.classList.remove('modal-open');
+    }
+    window.trainhubSyncModalState?.();
 }
 
 function closeFlashPopup() {
@@ -568,6 +584,7 @@ function openAttendanceRemarkModal(button) {
     if (!modal || !button || !input) return;
 
     document.getElementById('remarkCourseID').value = button.dataset.courseId || '';
+    document.getElementById('remarkAttendanceSessionID').value = button.dataset.sessionId || '';
     document.getElementById('remarkParticipantType').value = button.dataset.participantType || '';
     document.getElementById('remarkAttendanceID').value = button.dataset.attendanceId || '';
     document.getElementById('attendanceRemarkTitle').textContent = button.dataset.participantName || 'Participant';
@@ -659,11 +676,11 @@ function addTrainingSessionRow() {
         <div class="form-grid session-grid">
             <input type="hidden" name="sessionID[]" value="">
             <div><label>Session Name</label><input type="text" name="sessionName[]" placeholder="Morning Session / Day 1"></div>
-            <div><label>Session Date</label><input type="date" name="sessionDate[]" min="<?php echo h($today); ?>" required></div>
-            <div><label>Start Time</label><input type="time" name="startTime[]" required></div>
-            <div><label>End Time</label><input type="time" name="endTime[]" required><small class="field-error" data-time-error></small></div>
+            <div class="form-group"><label>Session Date</label><input type="date" name="sessionDate[]" min="<?php echo h($today); ?>" required><small class="field-error"></small></div>
+            <div class="form-group"><label>Start Time</label><input type="time" name="startTime[]" required><small class="field-error"></small></div>
+            <div class="form-group"><label>End Time</label><input type="time" name="endTime[]" required><small class="field-error" data-time-error></small></div>
             <div><label>Location</label><input type="text" name="location[]" placeholder="Hall / Google Meet"></div>
-            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry[]" min="<?php echo h($nowLocal); ?>"><small class="field-error" data-qr-error></small></div>
+            <div><label>QR Expiry Date & Time</label><input type="datetime-local" name="qrExpiry[]"><small class="field-error" data-qr-error></small><small class="qr-expiry-help">Optional. Leave blank for no expiry; if set, choose within 7 days of the session.</small></div>
             <div class="form-full trainer-picker" data-index="${index}">
                 <label>Assign Trainer</label>
                 <div class="trainer-picker-row">
@@ -811,25 +828,49 @@ function setupDynamicValidation(root = document) {
     });
 }
 
+function localDateTimeValue(date) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function validateQRExpiryInContainer(container) {
     if (!container) return true;
     const sessionDate = container.querySelector('input[name^="sessionDate"]');
     const startTime = container.querySelector('input[name^="startTime"]');
+    const endTime = container.querySelector('input[name^="endTime"]');
     const qrInput = container.querySelector('input[name^="qrExpiry"]');
     if (!qrInput) return true;
+
+    if (sessionDate && startTime && endTime && sessionDate.value && startTime.value && endTime.value) {
+        const sessionStart = new Date(`${sessionDate.value}T${startTime.value}`);
+        const sessionEnd = new Date(`${sessionDate.value}T${endTime.value}`);
+        if (!Number.isNaN(sessionStart.getTime()) && !Number.isNaN(sessionEnd.getTime())) {
+            const minimum = new Date(sessionStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const maximum = new Date(sessionEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            const effectiveMin = minimum > now ? minimum : now;
+            qrInput.min = localDateTimeValue(effectiveMin);
+            qrInput.max = localDateTimeValue(maximum);
+
+            if (qrInput.value) {
+                const expiry = new Date(qrInput.value);
+                if (expiry <= now) {
+                    setInlineError(qrInput, 'QR expiry date and time must be in the future.');
+                    return false;
+                }
+                if (expiry < minimum || expiry > maximum) {
+                    setInlineError(qrInput, 'QR expiry must be within 7 days before or after the session date and time.');
+                    return false;
+                }
+            }
+        }
+    } else {
+        qrInput.removeAttribute('max');
+    }
 
     if (!qrInput.value) {
         setInlineError(qrInput, '');
         return true;
-    }
-
-    if (sessionDate && startTime && sessionDate.value && startTime.value) {
-        const sessionStart = `${sessionDate.value}T${startTime.value}`;
-        qrInput.min = sessionStart;
-        if (qrInput.value < sessionStart) {
-            setInlineError(qrInput, 'QR expiry must be after the session start date and time.');
-            return false;
-        }
     }
 
     setInlineError(qrInput, '');
@@ -1009,6 +1050,16 @@ function setupSessionTabs() {
             button.classList.add('active');
             const pane = document.getElementById(target);
             if (pane) pane.classList.add('active');
+
+            // Keep the selected attendance session in the URL without reloading.
+            // A later approve/reject/remark POST will return to this same tab.
+            const sessionID = button.dataset.sessionId || '';
+            if (sessionID && window.history && window.history.replaceState) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('attendanceSession', sessionID);
+                url.hash = 'attendanceParticipants';
+                window.history.replaceState({}, '', url.toString());
+            }
         });
     });
 }

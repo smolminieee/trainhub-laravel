@@ -1,0 +1,9 @@
+TrainHub FIX7 - Certificate bulk action fixes
+
+- Fixed cloned certificate modal controls not receiving JavaScript listeners.
+- Download with no selection now shows the Please select notice.
+- Select individual / Select all in course / Select all in session now feed the bulk action correctly.
+- Bulk Download submits the selected certificate IDs to the existing download handler.
+- Bulk Email submits the selected certificate IDs to the existing email handler.
+- Email Certificates button uses a soft green base and readable soft-green hover state.
+- Previous FIX6 and earlier changes are preserved.

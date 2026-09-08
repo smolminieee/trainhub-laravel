@@ -2256,3 +2256,18 @@ textarea.is-invalid {
     min-width:96px;
     justify-content:center;
 }
+
+
+/* 2026-09-08 training modal, validation and action refinements */
+.page-course .modal{display:none;position:fixed;inset:0;z-index:13000!important;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.48);backdrop-filter:blur(5px)}
+.page-course .modal[aria-hidden="false"]{display:flex!important}
+.page-course .modal-box{position:relative;z-index:13001}
+.page-course .trainer-assign-btn{background:#2563eb!important;color:#fff!important;border:1px solid #2563eb!important}
+.page-course .trainer-assign-btn:hover{background:#1d4ed8!important;color:#fff!important}
+.page-course .trainer-add-page-btn{background:#ecfdf5!important;color:#047857!important;border:1px solid #a7f3d0!important}
+.page-course .trainer-add-page-btn:hover{background:#d1fae5!important;color:#065f46!important;border-color:#6ee7b7!important}
+.page-course .qr-expiry-help{display:block;margin-top:5px;color:#64748b;font-size:10.5px;line-height:1.4}
+.page-course .form-group>.field-error:empty{display:none}
+.page-course .form-group>label[data-required-marker="1"]::after{content:" *";color:#dc2626;font-weight:900}
+.page-course :is(.primary-btn,.secondary-action-btn,.trainer-assign-btn,.trainer-add-page-btn,.add-session-btn):hover :is(span,svg){opacity:1!important;visibility:visible!important;color:inherit!important}
+.page-course :is(.primary-btn,.secondary-action-btn,.trainer-assign-btn,.trainer-add-page-btn,.add-session-btn):hover svg{stroke:currentColor!important}

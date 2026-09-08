@@ -1,0 +1,9 @@
+FIX6 - Generated Certificate List / Bulk Download & Email
+
+- Generated course cards are compact and no longer stretch across the full page when only one/few courses exist.
+- Bulk Download and Email now validate selection before confirmation.
+- No selection messages are action-specific.
+- Bulk actions submit the exact checked certificate IDs through a dedicated POST form.
+- Generated certificate file lookup supports both app/Legacy/generated/certificates and public/generated/certificates.
+- Newly generated certificates are mirrored to public/generated/certificates so browser links/downloads can resolve them.
+- Single-file download content type follows the actual extension.

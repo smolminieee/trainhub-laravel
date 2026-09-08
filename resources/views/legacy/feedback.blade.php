@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Feedback | TrainHub Al Amin</title>
-    <link rel="stylesheet" href="assets/css/feedback.css?v=<?= file_exists(public_path('assets/css/feedback.css')) ? filemtime(public_path('assets/css/feedback.css')) : time(); ?>">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= file_exists(public_path('assets/css/style.css')) ? filemtime(public_path('assets/css/style.css')) : time(); ?>">
+    <link rel="stylesheet" href="assets/css/feedback.css?v=<?= file_exists(public_path('assets/css/feedback.css')) ? filemtime(public_path('assets/css/feedback.css')) : time(); ?>">
 </head>
 <body class="trainhub-app page-feedback">
 @include('partials.topbar')
@@ -14,21 +14,14 @@
     <section class="dashboard-header feedback-page-header">
         <div>
             <h1>Feedback Form</h1>
-            <p>Manage participant feedback, coordinator review forms, response viewing and printable feedback results.</p>
+            <p>Manage participant feedback, coordinator review forms and response viewing.</p>
         </div>
 
     </section>
 
     <?php if ($message): ?>
         <script>
-        
-document.addEventListener('click', function(event){
-    const modal = event.target.classList && event.target.classList.contains('feedback-edit-modal') ? event.target : null;
-    if (modal) closeFeedbackEditModal(modal.id);
-});
-
-document.addEventListener('DOMContentLoaded', function(){
-    initRequiredToggles(document);
+        document.addEventListener('DOMContentLoaded', function(){
             if (typeof openGlobalNotice === 'function') {
                 openGlobalNotice(<?= json_encode((string)$message) ?>, <?= json_encode($messageType === 'error' ? 'error' : 'success') ?>);
             }
@@ -192,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function(){
             </div>
 
             <div class="feedback-tab-panel <?= $activeTab === 'coordinator' ? 'active' : '' ?>" data-feedback-panel="coordinator">
-                <section class="panel form-builder-panel"><div class="panel-header"><div class="panel-title"><div class="panel-title-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div><h2>Create Coordinator Review Form</h2><p>Build a custom internal review form for the course coordinator.</p></div></div></div><?php renderBuilder('coordinator', $sessions); ?></section>
+                <section class="panel form-builder-panel"><div class="panel-header"><div class="panel-title"><div class="panel-title-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div><h2>Create Coordinator Review Form</h2></div></div></div><?php renderBuilder('coordinator', $sessions); ?></section>
             </div>
 
             <div class="feedback-tab-panel <?= $activeTab === 'forms' ? 'active' : '' ?>" data-feedback-panel="forms">
@@ -200,17 +193,18 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div class="panel-header">
                         <div class="panel-title">
                             <div class="panel-title-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
-                            <div><h2>Feedback Form Library</h2><p>Participant feedback and coordinator reviews are separated below.</p></div>
+                            <div><h2>Feedback Form Library</h2></div>
                         </div>
                     </div>
 
-                    <div class="form-list-toolbar simple-toolbar standardized-filter-row">
-                        <div class="form-list-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="feedbackFormSearch" placeholder="Search form, course, session or trainer..."></div>
-                        <select id="feedbackStatusFilter" class="form-list-filter"><option value="all">All forms</option><option value="has_responses">Has responses</option><option value="no_responses">No responses</option></select>
-                        <button type="button" class="list-filter-btn" id="feedbackFormApply">Filter</button>
-                        <button type="button" class="list-reset-btn" id="feedbackFormReset">Reset</button>
-                        <div class="form-list-result" id="feedbackFormResult">Showing <?= e(count($forms)) ?> forms</div>
-                    </div>
+                    <form method="GET" action="feedback.php" class="form-list-toolbar simple-toolbar standardized-filter-row" aria-label="Feedback form search and filter">
+                        <input type="hidden" name="tab" value="forms">
+                        <div class="form-list-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" name="form_search" id="feedbackFormSearch" value="<?= e($formListSearch) ?>" placeholder="Search form, course, session or trainer..." autocomplete="off"></div>
+                        <select name="form_status" id="feedbackStatusFilter" class="form-list-filter"><option value="all" <?= $formListStatus === 'all' ? 'selected' : '' ?>>All forms</option><option value="has_responses" <?= $formListStatus === 'has_responses' ? 'selected' : '' ?>>Has responses</option><option value="no_responses" <?= $formListStatus === 'no_responses' ? 'selected' : '' ?>>No responses</option></select>
+                        <button type="submit" class="list-filter-btn" id="feedbackFormApply">Filter</button>
+                        <a class="list-reset-btn form-list-reset-link" id="feedbackFormReset" href="feedback.php?tab=forms">Reset</a>
+                        <div class="form-list-result" id="feedbackFormResult">Showing <?= e($formShowingStart) ?>–<?= e($formShowingEnd) ?> of <?= e($formListTotal) ?> forms</div>
+                    </form>
 
                     <div class="created-form-sections" id="createdFormList">
                         <section class="created-form-section">
@@ -220,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                             <div class="created-form-list grouped-form-list">
                                 <?php if (empty($participantForms)): ?>
-                                    <div class="empty-state">No participant feedback form created yet.</div>
+                                    <div class="empty-state">No participant feedback form on this page.</div>
                                 <?php else: ?>
                                     <?php foreach ($participantForms as $form): ?>
                                         <?php renderCreatedFormCard($form, $sessions, $baseUrl, $questionGroupsByForm); ?>
@@ -236,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                             <div class="created-form-list grouped-form-list">
                                 <?php if (empty($coordinatorForms)): ?>
-                                    <div class="empty-state">No coordinator review form created yet.</div>
+                                    <div class="empty-state">No coordinator review form on this page.</div>
                                 <?php else: ?>
                                     <?php foreach ($coordinatorForms as $form): ?>
                                         <?php renderCreatedFormCard($form, $sessions, $baseUrl, $questionGroupsByForm); ?>
@@ -247,6 +241,20 @@ document.addEventListener('DOMContentLoaded', function(){
 
                         <div class="empty-state form-list-filter-empty" id="feedbackFormFilterEmpty" hidden>No feedback form matches the selected search or filter.</div>
                     </div>
+
+                    <?php if ($formTotalPages > 1): ?>
+                    <nav class="feedback-pagination" aria-label="Feedback form pages">
+                        <a class="feedback-page-link <?= $formPage <= 1 ? 'disabled' : '' ?>" href="<?= e(feedbackFormPageUrl(max(1, $formPage - 1), $formListSearch, $formListStatus)) ?>" aria-label="Previous page">‹</a>
+                        <?php foreach (feedbackPaginationItems($formPage, $formTotalPages) as $pageItem): ?>
+                            <?php if ($pageItem === 'ellipsis'): ?>
+                                <span class="feedback-page-ellipsis">…</span>
+                            <?php else: ?>
+                                <a class="feedback-page-link <?= (int)$pageItem === $formPage ? 'active' : '' ?>" href="<?= e(feedbackFormPageUrl((int)$pageItem, $formListSearch, $formListStatus)) ?>"><?= e((int)$pageItem) ?></a>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                        <a class="feedback-page-link <?= $formPage >= $formTotalPages ? 'disabled' : '' ?>" href="<?= e(feedbackFormPageUrl(min($formTotalPages, $formPage + 1), $formListSearch, $formListStatus)) ?>" aria-label="Next page">›</a>
+                    </nav>
+                    <?php endif; ?>
                 </section>
             </div>
 
@@ -255,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function(){
 </main>
 
 <div class="confirm-modal" id="confirmModal" hidden>
-    <div class="confirm-box"><h3>Confirm Action</h3><p id="confirmText">Are you sure?</p><div><button type="button" class="cancel-modal-btn" onclick="closeConfirmModal()">Cancel</button><button type="button" class="confirm-modal-btn" id="confirmProceedBtn">Yes, Continue</button></div></div>
+    <div class="confirm-box"><h3>Confirm Action</h3><p id="confirmText">Are you sure?</p><div><button type="button" class="cancel-modal-btn" onclick="closeConfirmModal()">Cancel</button><button type="button" class="confirm-modal-btn" id="confirmProceedBtn">Yes</button></div></div>
 </div>
 
 <div class="response-detail-modal" id="responseDetailModal" hidden>
@@ -293,6 +301,8 @@ function openSubmitConfirm(event, message) {
     pendingForm = event.target;
     pendingSubmitter = event.submitter || null;
     document.getElementById('confirmText').textContent = message;
+    const proceed = document.getElementById('confirmProceedBtn');
+    if (proceed) proceed.classList.toggle('danger-confirm', /delete|remove|revoke/i.test(message || ''));
     document.getElementById('confirmModal').hidden = false;
     if (typeof window.trainhubSyncModalState === 'function') window.trainhubSyncModalState();
     return false;
@@ -386,7 +396,9 @@ function addQuestion(button) {
     const qIndex = holder.querySelectorAll('.question-builder-card').length;
     const card = document.createElement('div');
     card.className = 'question-builder-card';
-    card.innerHTML = `<div class="question-builder-top"><strong>Question ${qIndex + 1}</strong><button type="button" class="remove-question-btn" onclick="removeQuestion(this)">Remove</button></div><div class="form-group"><label>Question Text</label><input type="text" name="question_text[${catIndex}][]" placeholder="Write your question here..." required></div><div class="question-options-grid"><div class="form-group"><label>Question Type</label><select name="question_type[${catIndex}][]" onchange="toggleImageUpload(this)"><option value="rating">Rating 1 - 5</option><option value="paragraph">Comment</option><option value="image">Image Upload Answer</option></select></div><div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[${catIndex}][${qIndex}]" value="0"><input type="checkbox" name="is_required[${catIndex}][${qIndex}]" value="1" checked><span></span><b>Required</b></label></div></div><div class="form-group image-upload-group" hidden><label>Reference Image</label><input type="file" name="question_image[${catIndex}][${qIndex}]" accept="image/*"></div>`;
+    const isParticipantBuilder = category.closest('.builder-root')?.dataset.builderType === 'participant';
+    const referenceImageHtml = '';
+    card.innerHTML = `<div class="question-builder-top"><strong>Question ${qIndex + 1}</strong><button type="button" class="remove-question-btn" onclick="removeQuestion(this)">Remove</button></div><div class="form-group"><label>Question Text</label><input type="text" name="question_text[${catIndex}][]" placeholder="Write your question here..." required></div><div class="question-options-grid"><div class="form-group"><label>Question Type</label><select name="question_type[${catIndex}][]" onchange="toggleImageUpload(this)"><option value="rating">Rating 1 - 5</option><option value="paragraph">Comment</option><option value="image">Image Upload Answer</option></select></div><div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[${catIndex}][${qIndex}]" value="0"><input type="checkbox" name="is_required[${catIndex}][${qIndex}]" value="1" checked><span></span><b>Required</b></label></div></div>${referenceImageHtml}`;
     holder.appendChild(card);
     refreshBuilder(category.closest('.builder-root'));
 }
@@ -400,12 +412,12 @@ function addCategory(button) {
     const form = button.closest('.builder-root');
     const container = form.querySelector('.category-container');
     const isParticipant = form.dataset.builderType === 'participant';
-    if (isParticipant) { showToast('error', 'Participant feedback uses the three fixed categories.'); return; }
     const card = document.createElement('div');
     card.className = 'category-builder-card';
     card.dataset.categoryRole = 'custom';
     const next = container.querySelectorAll('.category-builder-card').length;
-    card.innerHTML = `<div class="category-builder-top"><div><strong>Category ${next + 1}</strong></div><button type="button" class="remove-category-btn" onclick="removeCategory(this)">Remove</button></div><div class="form-group"><label>Category Name</label><input type="text" name="category_name[]" placeholder="Example: Facilities Evaluation" required></div><div class="questions-holder"><div class="question-builder-card"><div class="question-builder-top"><strong>Question 1</strong><button type="button" class="remove-question-btn" onclick="removeQuestion(this)">Remove</button></div><div class="form-group"><label>Question Text</label><input type="text" name="question_text[${next}][]" placeholder="Write your question here..." required></div><div class="question-options-grid"><div class="form-group"><label>Question Type</label><select name="question_type[${next}][]" onchange="toggleImageUpload(this)"><option value="rating">Rating 1 - 5</option><option value="paragraph">Comment</option><option value="image">Image Upload Answer</option></select></div><div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[${next}][0]" value="0"><input type="checkbox" name="is_required[${next}][0]" value="1" checked><span></span><b>Required</b></label></div></div><div class="form-group image-upload-group" hidden><label>Reference Image</label><input type="file" name="question_image[${next}][0]" accept="image/*"></div></div></div><button type="button" class="add-question-btn" onclick="addQuestion(this)">Add Question</button>`;
+    const categoryReferenceImageHtml = '';
+    card.innerHTML = `<div class="category-builder-top"><div><strong>Category ${next + 1}</strong></div><button type="button" class="remove-category-btn" onclick="removeCategory(this)">Remove</button></div><div class="form-group"><label>Category Name</label><input type="text" name="category_name[]" placeholder="Example: Facilities Evaluation" required></div><div class="questions-holder"><div class="question-builder-card"><div class="question-builder-top"><strong>Question 1</strong><button type="button" class="remove-question-btn" onclick="removeQuestion(this)">Remove</button></div><div class="form-group"><label>Question Text</label><input type="text" name="question_text[${next}][]" placeholder="Write your question here..." required></div><div class="question-options-grid"><div class="form-group"><label>Question Type</label><select name="question_type[${next}][]" onchange="toggleImageUpload(this)"><option value="rating">Rating 1 - 5</option><option value="paragraph">Comment</option><option value="image">Image Upload Answer</option></select></div><div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[${next}][0]" value="0"><input type="checkbox" name="is_required[${next}][0]" value="1" checked><span></span><b>Required</b></label></div></div>${categoryReferenceImageHtml}</div></div><button type="button" class="add-question-btn" onclick="addQuestion(this)">Add Question</button>`;
     if (isParticipant) {
         const overall = container.querySelector('[data-category-role="overall"]');
         container.insertBefore(card, overall);
@@ -454,12 +466,17 @@ function initRequiredToggles(root) {
         const checkbox = toggle.querySelector('input[type="checkbox"]');
         if (!checkbox) return;
         if (!toggle.dataset.requiredBound) {
+            // Treat every Required control as an independent switch. We suppress
+            // the <label> element's native toggle and update only the checkbox
+            // contained by the control that was actually clicked.
             toggle.addEventListener('click', function(event){
                 event.preventDefault();
-                checkbox.checked = !checkbox.checked;
-                checkbox.dispatchEvent(new Event('change', { bubbles:true }));
+                event.stopPropagation();
+                const ownCheckbox = event.currentTarget.querySelector('input[type="checkbox"]');
+                if (!ownCheckbox) return;
+                ownCheckbox.checked = !ownCheckbox.checked;
+                syncRequiredToggle(event.currentTarget);
             });
-            checkbox.addEventListener('change', function(){ syncRequiredToggle(toggle); });
             toggle.dataset.requiredBound = '1';
         }
         syncRequiredToggle(toggle);
@@ -486,49 +503,19 @@ function refreshBuilder(form) {
     });
     initRequiredToggles(form);
 }
-function applyFormFilters(){
-    const q = (document.getElementById('feedbackFormSearch')?.value || '').toLowerCase().trim();
-    const status = document.getElementById('feedbackStatusFilter')?.value || 'all';
-    const cards = Array.from(document.querySelectorAll('.filterable-created-form'));
-    let shown = 0;
-    cards.forEach(card => {
-        const matchQ = q === '' || (card.dataset.search || '').toLowerCase().includes(q);
-        const responses = Number(card.dataset.responses || 0);
-        const matchStatus = status === 'all' || (status === 'has_responses' ? responses > 0 : responses === 0);
-        const show = matchQ && matchStatus;
-        card.hidden = !show;
-        if (show) shown++;
-    });
-    const result = document.getElementById('feedbackFormResult');
-    if (result) result.textContent = `Showing ${shown} of ${cards.length} forms`;
-    const empty = document.getElementById('feedbackFormFilterEmpty');
-    if (empty) {
-        const hasActiveFilter = q !== '' || status !== 'all';
-        empty.hidden = !hasActiveFilter || shown !== 0 || cards.length === 0;
-    }
-}
 document.addEventListener('DOMContentLoaded', function(){
+    // Fixed-position edit dialogs must live directly under body. The feedback
+    // tab panel previously used an animated transform, which can make fixed
+    // descendants render inside a white content frame instead of the viewport.
+    document.querySelectorAll('.feedback-edit-modal').forEach(function(modal){
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    });
     initRequiredToggles(document);
     document.querySelectorAll('select[name^="question_type"]').forEach(toggleImageUpload);
     document.querySelectorAll('select[name="sessionID"]').forEach(function(select){
         select.addEventListener('change', function(){ syncCoordinatorHint(select); });
         syncCoordinatorHint(select);
     });
-    document.getElementById('feedbackFormApply')?.addEventListener('click', applyFormFilters);
-    document.getElementById('feedbackFormReset')?.addEventListener('click', function(){
-        const search = document.getElementById('feedbackFormSearch');
-        const status = document.getElementById('feedbackStatusFilter');
-        if (search) search.value = '';
-        if (status) status.value = 'all';
-        applyFormFilters();
-    });
-    document.getElementById('feedbackFormSearch')?.addEventListener('keydown', function(event){
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            applyFormFilters();
-        }
-    });
-    applyFormFilters();
 });
 </script>
 </body>

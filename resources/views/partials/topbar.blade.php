@@ -322,16 +322,15 @@ if ($initial === '') {
 @media(max-width:991.98px){#appTopbar .topbar-menu{display:none!important}#appTopbar .mobile-menu-toggle{display:inline-flex!important}#appTopbar .topbar-right{height:58px!important}}
 
 /* GLOBAL UI FEEDBACK + VALIDATION */
-.required-label::after,label[data-required-marker="1"]::after{content:" *";color:#dc2626;font-weight:800}.is-invalid,input.is-invalid,select.is-invalid,textarea.is-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.10)!important}.inline-field-error{display:block;margin-top:6px;color:#dc2626;font-size:11px;font-weight:650;line-height:1.35}.global-ui-overlay{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.5);backdrop-filter:blur(5px)}.global-ui-overlay.show{display:flex}.global-ui-dialog{width:min(390px,94vw);border:1px solid #e2e8f0;border-radius:18px;background:#fff;box-shadow:0 26px 70px rgba(15,23,42,.24);padding:24px;text-align:center}.global-ui-dialog-icon{width:48px;height:48px;margin:0 auto 12px;border-radius:50%;display:grid;place-items:center;background:#EFF6FF;color:#2563EB;font-size:22px;font-weight:900}.global-ui-dialog.success .global-ui-dialog-icon{background:#ecfdf5;color:#059669}.global-ui-dialog.error .global-ui-dialog-icon,.global-ui-dialog.confirm .global-ui-dialog-icon{background:#fef2f2;color:#dc2626}.global-ui-dialog h3{margin:0 0 8px;color:#0f172a;font-size:18px;font-weight:800}.global-ui-dialog p{margin:0;color:#64748b;font-size:13px;line-height:1.6}.global-ui-dialog-actions{display:flex;justify-content:center;gap:10px;margin-top:20px}.global-ui-dialog-actions button{min-width:105px;height:40px;border:0;border-radius:10px;color:#fff;font-size:12px;font-weight:800;cursor:pointer}.global-ui-dialog-actions .ui-ok,.global-ui-dialog-actions .ui-confirm{background:#2563EB}.global-ui-dialog-actions .ui-cancel{background:#475569}.global-ui-dialog-actions .ui-confirm-danger{background:#dc2626}body.ui-modal-open{overflow:hidden!important}
+.required-label::after,label[data-required-marker="1"]::after{content:" *";color:#dc2626;font-weight:800}.is-invalid,input.is-invalid,select.is-invalid,textarea.is-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.10)!important}.inline-field-error{display:block;margin-top:6px;color:#dc2626;font-size:11px;font-weight:650;line-height:1.35}.global-ui-overlay{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.5);backdrop-filter:blur(5px)}.global-ui-overlay.show{display:flex}.global-ui-dialog{width:min(390px,94vw);border:1px solid #e2e8f0;border-radius:18px;background:#fff;box-shadow:0 26px 70px rgba(15,23,42,.24);padding:24px;text-align:center}.global-ui-dialog-icon{width:48px;height:48px;margin:0 auto 12px;border-radius:50%;display:grid;place-items:center;background:#EFF6FF;color:#2563EB;font-size:22px;font-weight:900}.global-ui-dialog.success .global-ui-dialog-icon{background:#ecfdf5;color:#059669}.global-ui-dialog.error .global-ui-dialog-icon,.global-ui-dialog.confirm .global-ui-dialog-icon{background:#fef2f2;color:#dc2626}.global-ui-dialog h3{margin:0 0 8px;color:#0f172a;font-size:18px;font-weight:800}.global-ui-dialog p{margin:0;color:#64748b;font-size:13px;line-height:1.6}.global-ui-dialog-actions{display:flex;justify-content:center;gap:10px;margin-top:20px}.global-ui-dialog-actions button{min-width:105px;height:40px;border:0;border-radius:10px;color:#fff;font-size:12px;font-weight:800;cursor:pointer}.global-ui-dialog-actions .ui-ok{background:#2563EB}.global-ui-dialog-actions .ui-confirm{background:#16A34A}.global-ui-dialog-actions .ui-cancel{background:#475569}.global-ui-dialog-actions .ui-confirm-danger{background:#dc2626}body.ui-modal-open{overflow:hidden!important}
 
-/* Logout visibility + modal layer consistency */
-#appTopbar .logout-icon-link{width:auto!important;min-width:82px!important;padding:0 10px!important;display:flex!important;gap:7px!important;color:#475569!important;border:1px solid #e2e8f0!important;background:#fff!important}
-#appTopbar .logout-icon-link:hover{background:#EFF6FF!important;color:#2563EB!important;border-color:#BFDBFE!important}
-#appTopbar .logout-label{display:inline!important;font-size:11.5px!important;font-weight:800!important;white-space:nowrap!important}
-body.ui-modal-open #appTopbar,body.modal-open #appTopbar,body.has-modal-open #appTopbar{filter:blur(3px)!important;pointer-events:none!important;visibility:visible!important;opacity:1!important}
+/* Icon-only logout + modal layer consistency */
+#appTopbar .logout-icon-link{width:40px!important;height:40px!important;min-width:40px!important;padding:0!important;display:grid!important;place-items:center!important;color:#64748b!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+#appTopbar .logout-icon-link:hover{background:transparent!important;color:#dc2626!important;border-color:transparent!important}
+body.ui-modal-open #appTopbar,body.modal-open #appTopbar,body.has-modal-open #appTopbar{filter:none!important;pointer-events:none!important;visibility:visible!important;opacity:1!important}
 body.trainhub-app .modal{z-index:5000!important}
 body.trainhub-app :is(.flash-popup-backdrop,.delete-confirm-backdrop,.confirm-popup-backdrop){z-index:5100!important}
-@media(max-width:575.98px){#appTopbar .logout-icon-link{min-width:40px!important;width:40px!important;padding:0!important}.logout-label{display:none!important}}
+@media(max-width:575.98px){#appTopbar .logout-icon-link{min-width:40px!important;width:40px!important;padding:0!important}}
 
 </style>
 
@@ -372,7 +371,6 @@ body.trainhub-app :is(.flash-popup-backdrop,.delete-confirm-backdrop,.confirm-po
                     <path d="M16 17l5-5-5-5"/>
                     <path d="M21 12H9"/>
                 </svg>
-                <span class="logout-label">Log out</span>
             </a>
         </div>
     </div>
@@ -389,7 +387,7 @@ body.trainhub-app :is(.flash-popup-backdrop,.delete-confirm-backdrop,.confirm-po
 
 
 <div class="global-ui-overlay" id="globalNoticeModal" aria-hidden="true"><div class="global-ui-dialog" id="globalNoticeDialog" role="dialog" aria-modal="true"><div class="global-ui-dialog-icon" id="globalNoticeIcon">✓</div><h3 id="globalNoticeTitle">Successful</h3><p id="globalNoticeMessage"></p><div class="global-ui-dialog-actions"><button type="button" class="ui-ok" id="globalNoticeOk">OK</button></div></div></div>
-<div class="global-ui-overlay" id="globalConfirmModal" aria-hidden="true"><div class="global-ui-dialog confirm" role="dialog" aria-modal="true"><div class="global-ui-dialog-icon">!</div><h3>Are you sure?</h3><p id="globalConfirmMessage">Are you sure you want to continue?</p><div class="global-ui-dialog-actions"><button type="button" class="ui-cancel" id="globalConfirmCancel">Cancel</button><button type="button" class="ui-confirm" id="globalConfirmProceed">Yes, Continue</button></div></div></div>
+<div class="global-ui-overlay" id="globalConfirmModal" aria-hidden="true"><div class="global-ui-dialog confirm" role="dialog" aria-modal="true"><div class="global-ui-dialog-icon">!</div><h3>Are you sure?</h3><p id="globalConfirmMessage">Are you sure you want to continue?</p><div class="global-ui-dialog-actions"><button type="button" class="ui-cancel" id="globalConfirmCancel">Cancel</button><button type="button" class="ui-confirm" id="globalConfirmProceed">Yes</button></div></div></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -411,7 +409,7 @@ function openGlobalNotice(message,type='success',title=''){const o=document.getE
 function closeGlobalNotice(){const o=document.getElementById('globalNoticeModal');o?.classList.remove('show');o?.setAttribute('aria-hidden','true');document.body.classList.remove('ui-modal-open')}
 document.getElementById('globalNoticeOk')?.addEventListener('click',closeGlobalNotice);document.getElementById('globalNoticeModal')?.addEventListener('click',e=>{if(e.target.id==='globalNoticeModal')closeGlobalNotice()});
 function convertLegacyAlerts(){document.querySelectorAll('.alert').forEach(b=>{if(b.dataset.popupConverted==='1')return;const msg=(b.textContent||'').trim();if(!msg)return;b.dataset.popupConverted='1';const err=b.classList.contains('alert-danger')||b.classList.contains('alert-error')||b.classList.contains('error');b.hidden=true;setTimeout(()=>openGlobalNotice(msg,err?'error':'success'),80)})}
-let globalPendingForm=null;function openGlobalConfirm(form,message,danger=false){globalPendingForm=form;document.getElementById('globalConfirmMessage').textContent=message||'Are you sure you want to continue?';const b=document.getElementById('globalConfirmProceed');b.className=danger?'ui-confirm-danger':'ui-confirm';b.textContent=danger?'Yes, Delete':'Yes, Continue';document.getElementById('globalConfirmModal')?.classList.add('show');document.body.classList.add('ui-modal-open')}
+let globalPendingForm=null;function openGlobalConfirm(form,message,danger=false){globalPendingForm=form;document.getElementById('globalConfirmMessage').textContent=message||'Are you sure you want to continue?';const b=document.getElementById('globalConfirmProceed');b.className=danger?'ui-confirm-danger':'ui-confirm';b.textContent='Yes';document.getElementById('globalConfirmModal')?.classList.add('show');document.body.classList.add('ui-modal-open')}
 function closeGlobalConfirm(){globalPendingForm=null;document.getElementById('globalConfirmModal')?.classList.remove('show');document.body.classList.remove('ui-modal-open')}
 document.getElementById('globalConfirmCancel')?.addEventListener('click',closeGlobalConfirm);document.getElementById('globalConfirmProceed')?.addEventListener('click',()=>{if(!globalPendingForm)return;const f=globalPendingForm;globalPendingForm=null;f.dataset.globalConfirmed='1';document.getElementById('globalConfirmModal')?.classList.remove('show');document.body.classList.remove('ui-modal-open');f.submit()});document.getElementById('globalConfirmModal')?.addEventListener('click',e=>{if(e.target.id==='globalConfirmModal')closeGlobalConfirm()});
 function setupGlobalConfirmForms(){document.querySelectorAll('form.confirm-form').forEach(f=>{if(f.dataset.confirmReady==='1'||f.dataset.globalConfirmReady==='1')return;f.dataset.globalConfirmReady='1';f.addEventListener('submit',e=>{if(f.dataset.globalConfirmed==='1'){delete f.dataset.globalConfirmed;return}e.preventDefault();openGlobalConfirm(f,f.dataset.confirm||f.dataset.deleteMessage||'Are you sure you want to continue?',f.classList.contains('delete-form')||f.dataset.deleteTitle)})})}
@@ -479,6 +477,11 @@ document.addEventListener('submit',e=>{const f=e.target;if(!(f instanceof HTMLFo
         requestAnimationFrame(sync);
     }
     document.addEventListener('DOMContentLoaded',function(){
+        // Trainer has its own lightweight modal manager. Do not run the generic
+        // whole-page modal observer there; it previously left the body locked
+        // when a trainer popup/confirmation was opened or closed quickly.
+        if (document.body.classList.contains('page-trainer')) return;
+
         sync();
 
         // Attribute changes can happen rapidly while a page renders. Queue one

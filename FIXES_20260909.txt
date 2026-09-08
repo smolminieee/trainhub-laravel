@@ -1,0 +1,45 @@
+TrainHub Laravel fixes - 2026-09-09
+
+This build continues from the V6 unified-login/performance build and addresses the latest reported issues.
+
+Teacher / New Teacher
+- Fixed New Teacher list search box so the search icon no longer overlaps placeholder text.
+- Observer Assignment Edit button now uses light blue; Assign remains primary blue.
+- Reworked observer-assignment modal open/close handling so Edit and Assign reliably open the form.
+- Assignment modal state now resets correctly after close.
+
+Training
+- Removed application-side writes to course/course_session created_at and updated_at columns.
+  This makes the Laravel code compatible with the currently imported database where those columns are absent,
+  while remaining compatible with V6 schemas where those columns are nullable.
+- Course/CourseSession Eloquent timestamp handling is disabled so Eloquent will not try to write missing timestamp columns.
+
+Trainer
+- Removed application-side trainer created_at/updated_at writes to prevent "Unknown column" errors.
+- Trainer Eloquent timestamp handling is disabled.
+- Top Rated Trainer now opens the same Trainer Details modal design/ID used by the eye icon.
+- Rebuilt trainer modal state management so Add Trainer, View Details, Expertise, Update and close actions do not leave the page locked.
+- Removed the expensive trainer modal :has() CSS state selector.
+- Trainer dialogs no longer blur the topbar; a normal translucent overlay is used instead.
+- Delete confirmation is rendered above the update modal, fixing trainer-document delete from inside Update Trainer.
+- Delete Trainer confirmation uses the same stable modal state flow.
+
+Feedback
+- Fixed Form List search box icon/text overlap.
+- Required/Optional switches now change only the switch that was clicked.
+- Required switch knob position is controlled by the individual toggle state so it moves correctly in both directions.
+- Feedback workspace tabs now match Teacher/Certificate tabs: white bar with blue underline for the active tab.
+
+Performance
+- Existing Dashboard/browser performance fixes remain intact.
+- No FullCalendar or Chart.js was restored.
+- The trainer page no longer uses the CSS :has() selector for modal state.
+- Existing server-side Feedback pagination remains intact.
+
+Validation performed in packaging environment
+- PHP/Blade syntax checks passed.
+- Trainer, Teacher, Feedback and shared topbar inline JavaScript syntax checks passed.
+- Laravel route checks passed for course.php, teacher.php, trainer.php and feedback.php.
+
+Runtime note
+- Live MySQL/XAMPP interaction cannot be executed in the packaging environment. Test insert/update/delete actions against the local alamin_main_database after copying the files.

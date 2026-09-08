@@ -16,8 +16,9 @@ if ($staffID === '') {
     exit();
 }
 
-$setAuditStaff = $conn->prepare('SET @current_staff_id = ?');
-$setAuditStaff->bind_param('s', $staffID);
+$staffName = $_SESSION['staffName'] ?? $_SESSION['staff_name'] ?? $staffID;
+$setAuditStaff = $conn->prepare('SET @current_staff_id = ?, @current_staff_name = ?');
+$setAuditStaff->bind_param('ss', $staffID, $staffName);
 $setAuditStaff->execute();
 $setAuditStaff->close();
 
@@ -36,25 +37,30 @@ function verifyCsrfToken(): void {
 function generateNextId($conn, $table, $column, $prefix, $pad = 4) {
     $safeTable = preg_replace('/[^A-Za-z0-9_]/', '', $table);
     $safeColumn = preg_replace('/[^A-Za-z0-9_]/', '', $column);
-    $safePrefix = mysqli_real_escape_string($conn, $prefix);
+    $prefixLength = strlen($prefix);
+    $suffixStart = $prefixLength + 1;
 
-    $query = "
-        SELECT $safeColumn AS latest_id
-        FROM $safeTable
-        WHERE $safeColumn LIKE '{$safePrefix}%'
-        ORDER BY CAST(SUBSTRING($safeColumn, " . (strlen($prefix) + 1) . ") AS UNSIGNED) DESC
+    // Every ID column using this helper has one canonical prefix (OBS, EXT,
+    // ASG). Avoid comparing a bound string with the column entirely: that
+    // keeps the helper portable across utf8mb4_unicode_ci / binary parameter
+    // collations in the combined database.
+    $stmt = $conn->prepare("
+        SELECT `$safeColumn` AS latest_id
+        FROM `$safeTable`
+        WHERE BINARY LEFT(`$safeColumn`, ?) = BINARY ?
+        ORDER BY CAST(SUBSTRING(`$safeColumn`, ?) AS UNSIGNED) DESC
         LIMIT 1
-    ";
-
-    $result = mysqli_query($conn, $query);
-    $row = $result ? mysqli_fetch_assoc($result) : null;
+    ");
+    $stmt->bind_param('isi', $prefixLength, $prefix, $suffixStart);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
     $num = 1;
 
-    if ($row && !empty($row['latest_id'])) {
-        $num = ((int)substr($row['latest_id'], strlen($prefix))) + 1;
+    if ($row && !empty($row['latest_id']) && str_starts_with((string)$row['latest_id'], $prefix)) {
+        $num = ((int)substr((string)$row['latest_id'], $prefixLength)) + 1;
     }
 
-    return $prefix . str_pad($num, $pad, '0', STR_PAD_LEFT);
+    return $prefix . str_pad((string)$num, $pad, '0', STR_PAD_LEFT);
 }
 
 function classifySchool(?string $schoolID, ?string $schoolName): string {
@@ -142,15 +148,24 @@ function saveObserverRecord($conn, $currentObserverID, $teacherID, $startDate, $
     if (empty($teacherID)) return null;
 
     if (!empty($currentObserverID)) {
-        $stmt = mysqli_prepare($conn, "
-            UPDATE observer
-            SET teacherID = ?, startDate = ?, endDate = ?, status = ?
-            WHERE observerID = ?
-        ");
-        mysqli_stmt_bind_param($stmt, "sssss", $teacherID, $startDate, $endDate, $status, $currentObserverID);
-        mysqli_stmt_execute($stmt);
+        $check = mysqli_prepare($conn, "SELECT teacherID FROM observer WHERE observerID = ? LIMIT 1");
+        mysqli_stmt_bind_param($check, 's', $currentObserverID);
+        mysqli_stmt_execute($check);
+        $current = mysqli_fetch_assoc(mysqli_stmt_get_result($check));
 
-        return $currentObserverID;
+        // Update the role record only when Edit keeps the same teacher. If a
+        // different teacher is selected, link the assignment to that teacher's
+        // own observer record instead of changing a shared observer identity.
+        if (($current['teacherID'] ?? '') === $teacherID) {
+            $stmt = mysqli_prepare($conn, "
+                UPDATE observer
+                SET startDate = ?, endDate = ?, status = ?
+                WHERE observerID = ?
+            ");
+            mysqli_stmt_bind_param($stmt, "ssss", $startDate, $endDate, $status, $currentObserverID);
+            mysqli_stmt_execute($stmt);
+            return $currentObserverID;
+        }
     }
 
     $existingID = findObserverIDByTeacher($conn, $teacherID);
@@ -182,15 +197,21 @@ function saveExternalObserverRecord($conn, $currentExternalObserverID, $teacherI
     if (empty($teacherID)) return null;
 
     if (!empty($currentExternalObserverID)) {
-        $stmt = mysqli_prepare($conn, "
-            UPDATE external_observer
-            SET teacherID = ?, startDate = ?, endDate = ?, status = ?
-            WHERE externalObserverID = ?
-        ");
-        mysqli_stmt_bind_param($stmt, "sssss", $teacherID, $startDate, $endDate, $status, $currentExternalObserverID);
-        mysqli_stmt_execute($stmt);
+        $check = mysqli_prepare($conn, "SELECT teacherID FROM external_observer WHERE externalObserverID = ? LIMIT 1");
+        mysqli_stmt_bind_param($check, 's', $currentExternalObserverID);
+        mysqli_stmt_execute($check);
+        $current = mysqli_fetch_assoc(mysqli_stmt_get_result($check));
 
-        return $currentExternalObserverID;
+        if (($current['teacherID'] ?? '') === $teacherID) {
+            $stmt = mysqli_prepare($conn, "
+                UPDATE external_observer
+                SET startDate = ?, endDate = ?, status = ?
+                WHERE externalObserverID = ?
+            ");
+            mysqli_stmt_bind_param($stmt, "ssss", $startDate, $endDate, $status, $currentExternalObserverID);
+            mysqli_stmt_execute($stmt);
+            return $currentExternalObserverID;
+        }
     }
 
     $existingID = findExternalObserverIDByTeacher($conn, $teacherID);
@@ -219,7 +240,7 @@ function saveExternalObserverRecord($conn, $currentExternalObserverID, $teacherI
 }
 
 $errorMessage = '';
-$allowedTabs = ['secondary', 'primary', 'preschool', 'others', 'new_teacher'];
+$allowedTabs = ['secondary', 'primary', 'preschool', 'others', 'organisations', 'new_teacher'];
 
 /* =========================
    SAVE OBSERVER ASSIGNMENT
@@ -246,20 +267,20 @@ if (isset($_POST['assign_observer'])) {
         $observerTeacherID = !empty($_POST['observer_teacher_id']) ? $_POST['observer_teacher_id'] : null;
         $observerStartDate = !empty($_POST['observerStartDate']) ? $_POST['observerStartDate'] : null;
         $observerEndDate = !empty($_POST['observerEndDate']) ? $_POST['observerEndDate'] : null;
-        $observerStatus = $_POST['observerStatus'] ?? 'active';
+        $observerStatus = 'active';
 
         $externalTeacherID = !empty($_POST['external_teacher_id']) ? $_POST['external_teacher_id'] : null;
         $externalStartDate = !empty($_POST['externalStartDate']) ? $_POST['externalStartDate'] : null;
         $externalEndDate = !empty($_POST['externalEndDate']) ? $_POST['externalEndDate'] : null;
-        $externalStatus = $_POST['externalStatus'] ?? 'active';
+        $externalStatus = 'active';
 
         $observerAssignedDate = !empty($_POST['observerAssignedDate']) ? $_POST['observerAssignedDate'] : $observerStartDate;
         $observerAssignmentEndDate = !empty($_POST['observerAssignmentEndDate']) ? $_POST['observerAssignmentEndDate'] : $observerEndDate;
-        $observerAssignmentStatus = $_POST['observerAssignmentStatus'] ?? $observerStatus;
+        $observerAssignmentStatus = 'active';
 
         $externalAssignedDate = !empty($_POST['externalAssignedDate']) ? $_POST['externalAssignedDate'] : $externalStartDate;
         $externalAssignmentEndDate = !empty($_POST['externalAssignmentEndDate']) ? $_POST['externalAssignmentEndDate'] : $externalEndDate;
-        $externalAssignmentStatus = $_POST['externalAssignmentStatus'] ?? $externalStatus;
+        $externalAssignmentStatus = 'active';
 
         $hasObserverNow = !empty($observerTeacherID);
         $hasExternalNow = !empty($externalTeacherID);
@@ -318,9 +339,9 @@ if (isset($_POST['assign_observer'])) {
                         assignedDate = ?,
                         endDate = ?,
                         status = ?
-                    WHERE assignmentID = ?
+                    WHERE assignmentID = ? AND gn_id = ?
                 ");
-                mysqli_stmt_bind_param($stmt, "ssssss", $observerID, $nullExternalObserverID, $observerAssignedDate, $observerAssignmentEndDate, $observerAssignmentStatus, $observerAssignmentID);
+                mysqli_stmt_bind_param($stmt, "sssssss", $observerID, $nullExternalObserverID, $observerAssignedDate, $observerAssignmentEndDate, $observerAssignmentStatus, $observerAssignmentID, $gn_id);
                 mysqli_stmt_execute($stmt);
             } else {
                 $newObserverAssignmentID = generateNextId($conn, 'observer_assignment', 'assignmentID', 'ASG', 4);
@@ -333,6 +354,20 @@ if (isset($_POST['assign_observer'])) {
                 mysqli_stmt_bind_param($stmt, "sssssss", $newObserverAssignmentID, $gn_id, $observerID, $nullExternalObserverID, $observerAssignedDate, $observerAssignmentEndDate, $observerAssignmentStatus);
                 mysqli_stmt_execute($stmt);
             }
+        }
+
+        // If an existing role is cleared while editing, keep the historical
+        // assignment row but mark it inactive. This makes Edit accurately reflect
+        // the new selection and also fires the canonical UPDATE audit trigger.
+        if (!$hasObserverNow && !empty($observerAssignmentID)) {
+            $stmt = mysqli_prepare($conn, "
+                UPDATE observer_assignment
+                SET status = 'inactive',
+                    endDate = COALESCE(endDate, CURDATE())
+                WHERE assignmentID = ? AND gn_id = ?
+            ");
+            mysqli_stmt_bind_param($stmt, 'ss', $observerAssignmentID, $gn_id);
+            mysqli_stmt_execute($stmt);
         }
 
         if ($hasExternalNow) {
@@ -355,9 +390,9 @@ if (isset($_POST['assign_observer'])) {
                         assignedDate = ?,
                         endDate = ?,
                         status = ?
-                    WHERE assignmentID = ?
+                    WHERE assignmentID = ? AND gn_id = ?
                 ");
-                mysqli_stmt_bind_param($stmt, "ssssss", $nullObserverID, $externalObserverID, $externalAssignedDate, $externalAssignmentEndDate, $externalAssignmentStatus, $externalAssignmentID);
+                mysqli_stmt_bind_param($stmt, "sssssss", $nullObserverID, $externalObserverID, $externalAssignedDate, $externalAssignmentEndDate, $externalAssignmentStatus, $externalAssignmentID, $gn_id);
                 mysqli_stmt_execute($stmt);
             } else {
                 $newExternalAssignmentID = generateNextId($conn, 'observer_assignment', 'assignmentID', 'ASG', 4);
@@ -370,6 +405,17 @@ if (isset($_POST['assign_observer'])) {
                 mysqli_stmt_bind_param($stmt, "sssssss", $newExternalAssignmentID, $gn_id, $nullObserverID, $externalObserverID, $externalAssignedDate, $externalAssignmentEndDate, $externalAssignmentStatus);
                 mysqli_stmt_execute($stmt);
             }
+        }
+
+        if (!$hasExternalNow && !empty($externalAssignmentID)) {
+            $stmt = mysqli_prepare($conn, "
+                UPDATE observer_assignment
+                SET status = 'inactive',
+                    endDate = COALESCE(endDate, CURDATE())
+                WHERE assignmentID = ? AND gn_id = ?
+            ");
+            mysqli_stmt_bind_param($stmt, 'ss', $externalAssignmentID, $gn_id);
+            mysqli_stmt_execute($stmt);
         }
 
         mysqli_commit($conn);
@@ -403,6 +449,7 @@ $tabLabels = [
     'primary' => 'Primary School',
     'preschool' => 'Preschool',
     'others' => 'Others',
+    'organisations' => 'Organisations',
     'new_teacher' => 'New Teacher'
 ];
 
@@ -418,6 +465,7 @@ $teachersBySchool = [];
 $newTeachers = [];
 $newTeachersBySchool = [];
 $eligibleTeacherList = [];
+$organizations = [];
 
 $totalSchools = (int)(mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM school"))['total'] ?? 0);
 $totalTeacherAll = (int)(mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM teacher"))['total'] ?? 0);
@@ -490,6 +538,17 @@ if ($selectedSchoolID !== '') {
 
     while ($teacher = mysqli_fetch_assoc($teacherResult)) {
         $teachersBySchool[$selectedSchoolID][] = $teacher;
+    }
+}
+
+if ($activeTab === 'organisations') {
+    $organizationResult = mysqli_query($conn, "
+        SELECT OrganizationID, OrganizationName, OrganizationAddress, RegisterDate, PhoneNumber
+        FROM organizations
+        ORDER BY OrganizationName ASC
+    ");
+    while ($organization = $organizationResult ? mysqli_fetch_assoc($organizationResult) : null) {
+        $organizations[] = $organization;
     }
 }
 
@@ -623,7 +682,7 @@ function renderTeacherRows(array $teachers): void {
             <div class="teacher-avatar"><?php echo e(strtoupper(substr((string)$t['teacherName'], 0, 1))); ?></div>
             <div>
                 <strong><?php echo e($t['teacherName']); ?></strong>
-                <span><?php echo e($t['teacherID']); ?> • <?php echo e($t['email']); ?></span>
+                <span><?php echo e($t['email'] ?: 'No email'); ?></span>
                 <small>
                     Appointed: <?php echo e($t['appointedDate'] ?: '-'); ?>
                     <?php if ($teacherServiceYears !== null) { ?> • <?php echo e($teacherServiceYears); ?> years service<?php } ?>
@@ -649,7 +708,7 @@ function renderSchoolNewTeacherRows(array $newTeachers): void {
             <div class="teacher-avatar"><?php echo e(strtoupper(substr((string)$g['gn_name'], 0, 1))); ?></div>
             <div>
                 <strong><?php echo e($g['gn_name']); ?></strong>
-                <span><?php echo e($g['gn_id']); ?> • <?php echo e($g['email']); ?></span>
+                <span><?php echo e($g['email'] ?: 'No email'); ?></span>
                 <small>
                     Phone: <?php echo e($g['phone_number'] ?: '-'); ?>
                     <?php if (!empty($g['hire_date'])) { ?> • Appointed: <?php echo e($g['hire_date']); ?><?php } ?>
@@ -667,11 +726,9 @@ function renderNewTeacherCard(array $g, array $eligibleTeacherList, string $cont
     $formId = 'assignForm' . $contextPrefix . $safeId;
     $newTeacherSearchText = implode(' ', [
         $g['gn_name'] ?? '',
-        $g['gn_id'] ?? '',
         $g['email'] ?? '',
         $g['phone_number'] ?? '',
         $g['schoolName'] ?? '',
-        $g['schoolID'] ?? '',
         $g['observerName'] ?? '',
         $g['externalObserverName'] ?? ''
     ]);
@@ -689,7 +746,7 @@ function renderNewTeacherCard(array $g, array $eligibleTeacherList, string $cont
 
             <div>
                 <strong><?php echo e($g['gn_name']); ?></strong>
-                <span><?php echo e($g['gn_id']); ?> • <?php echo e($g['schoolName'] ?: $g['schoolID']); ?></span>
+                <span><?php echo e($g['schoolName'] ?: 'School not assigned'); ?></span>
                 <small>
                     Observer: <?php echo !empty($g['observerName']) ? e($g['observerName']) : 'Not assigned'; ?>
                     • External: <?php echo !empty($g['externalObserverName']) ? e($g['externalObserverName']) : 'Not assigned'; ?>
@@ -709,11 +766,10 @@ function renderNewTeacherCard(array $g, array $eligibleTeacherList, string $cont
             </div>
         </div>
 
-        <form method="POST" class="assignment-form assignment-modal observer-assignment-form" id="<?php echo e($formId); ?>">
+        <form method="POST" class="assignment-form assignment-modal observer-assignment-form" id="<?php echo e($formId); ?>" aria-hidden="true">
             <div class="assignment-modal-shell">
                 <div class="assignment-modal-header">
                     <div>
-                        <span>Observer Assignment</span>
                         <h3><?php echo e($g['gn_name']); ?></h3>
                         <p>Choose an observer, external observer, or both. The list only shows eligible teachers from other schools.</p>
                     </div>
@@ -844,9 +900,10 @@ function renderNewTeacherCard(array $g, array $eligibleTeacherList, string $cont
                     </div>
                 </div>
 
+                <input type="hidden" name="assign_observer" value="1">
                 <div class="assignment-modal-actions">
                     <button type="button" class="modal-cancel-btn" data-close-target="<?php echo e($formId); ?>">Cancel</button>
-                    <button type="submit" name="assign_observer" class="primary-btn save-assignment-btn">Save Assignment</button>
+                    <button type="submit" class="primary-btn save-assignment-btn">Save</button>
                 </div>
             </div>
         </form>

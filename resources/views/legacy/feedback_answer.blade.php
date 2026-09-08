@@ -33,6 +33,7 @@
             <form method="POST" enctype="multipart/form-data" class="answer-form" onsubmit="return openSubmitConfirm(event, 'Submit this feedback?');">
                 <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="formID" value="<?= e($answerForm['formID']) ?>">
+                <input type="hidden" name="submit_feedback" value="1">
 
                 <section class="answer-card verify-card">
                     <div class="question-heading clean">
@@ -77,10 +78,6 @@
                                     <h3><?= e($question['questionText']) ?><?php if ((int)$question['isRequired'] === 1): ?><small>*</small><?php endif; ?></h3>
                                 </div>
 
-                                <?php if (!empty($question['questionImage'])): ?>
-                                    <div class="question-image-preview"><img src="<?= e($question['questionImage']) ?>" alt="Question image"></div>
-                                <?php endif; ?>
-
                                 <?php if ($question['questionType'] === 'rating'): ?>
                                     <div class="rating-scale">
                                         <?php for ($i = 1; $i <= 5; $i++): ?>
@@ -89,7 +86,7 @@
                                     </div>
                                     <div class="scale-caption"><span>Strongly Disagree</span><span>Strongly Agree</span></div>
                                 <?php elseif ($question['questionType'] === 'image'): ?>
-                                    <label class="answer-image-upload">
+                                    <label class="answer-image-upload" data-answer-image-upload>
                                         <input type="file" name="answer_image[<?= e($question['questionID']) ?>]" accept="image/*" <?= (int)$question['isRequired'] === 1 ? 'required' : '' ?>>
                                         <span class="answer-image-upload-icon" aria-hidden="true">
                                             <svg viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14a2 2 0 0 0 2-2v-3"/><path d="M3 15v3a2 2 0 0 0 2 2"/></svg>
@@ -97,6 +94,7 @@
                                         <strong>Upload Image</strong>
                                         <small>Click to choose JPG, PNG, GIF or WEBP</small>
                                         <span class="answer-image-file">No image selected</span>
+                                        <img class="answer-image-selected-preview" alt="Selected image preview" hidden>
                                     </label>
                                 <?php else: ?>
                                     <textarea class="answer-textarea" name="answer[<?= e($question['questionID']) ?>]" placeholder="Write your answer here..." <?= (int)$question['isRequired'] === 1 ? 'required' : '' ?>></textarea>
@@ -106,12 +104,12 @@
                     </section>
                 <?php $catNo++; endforeach; ?>
 
-                <button type="submit" name="submit_feedback" class="submit-answer-btn">Submit Feedback</button>
+                <button type="submit" class="submit-answer-btn">Submit Feedback</button>
             </form>
         <?php endif; ?>
     <?php endif; ?>
 </main>
-<div class="confirm-modal" id="confirmModal" hidden><div class="confirm-box"><h3 id="confirmTitle">Confirm Action</h3><p id="confirmText">Are you sure?</p><div><button type="button" class="cancel-modal-btn" onclick="closeConfirmModal()">Cancel</button><button type="button" class="confirm-modal-btn" id="confirmProceedBtn">Yes, Continue</button></div></div></div>
+<div class="confirm-modal" id="confirmModal" hidden><div class="confirm-box"><h3 id="confirmTitle">Confirm Action</h3><p id="confirmText">Are you sure?</p><div><button type="button" class="cancel-modal-btn" onclick="closeConfirmModal()">Cancel</button><button type="button" class="confirm-modal-btn" id="confirmProceedBtn">Yes</button></div></div></div>
 <script>
 let pendingForm = null;
 let pendingSubmitter = null;
@@ -144,6 +142,27 @@ document.getElementById('confirmProceedBtn').addEventListener('click',function()
         }
         form.submit();
     }
+});
+
+
+document.querySelectorAll('[data-answer-image-upload] input[type="file"]').forEach(function(input){
+    input.addEventListener('change', function(){
+        const upload = input.closest('[data-answer-image-upload]');
+        const fileLabel = upload?.querySelector('.answer-image-file');
+        const preview = upload?.querySelector('.answer-image-selected-preview');
+        const file = input.files && input.files[0] ? input.files[0] : null;
+        if (fileLabel) fileLabel.textContent = file ? file.name : 'No image selected';
+        upload?.classList.toggle('has-image', !!file);
+        if (!preview) return;
+        if (!file) {
+            preview.hidden = true;
+            preview.removeAttribute('src');
+            return;
+        }
+        const reader = new FileReader();
+        reader.addEventListener('load', function(){ preview.src = reader.result; preview.hidden = false; });
+        reader.readAsDataURL(file);
+    });
 });
 </script>
 </body>

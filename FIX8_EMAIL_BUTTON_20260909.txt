@@ -1,0 +1,10 @@
+TrainHub FIX8 - Certificate Email Button
+Date: 2026-09-09
+
+Correction:
+- Email Certificates is soft green even when not hovered.
+- Hover/focus remains a slightly stronger soft green, not blue.
+- Email text and envelope icon are explicitly kept visible on hover/focus.
+- Added final high-specificity rules after the shared global button rules so they cannot override this Certificate action.
+
+All FIX1-FIX7 functionality is preserved.

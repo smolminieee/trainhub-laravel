@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings | TrainHub Al Amin</title>
-    <link rel="stylesheet" href="assets/css/settings.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/settings.css?v=<?php echo file_exists(public_path('assets/css/settings.css')) ? filemtime(public_path('assets/css/settings.css')) : time(); ?>">
     <link rel="stylesheet" href="assets/css/style.css?v=<?php echo file_exists(public_path('assets/css/style.css')) ? filemtime(public_path('assets/css/style.css')) : time(); ?>">
 </head>
 <body class="trainhub-app page-settings">
@@ -89,11 +89,10 @@
                             <label for="staffName">Name</label>
                             <input
                                 id="staffName"
+                                class="readonly-field"
                                 type="text"
-                                name="staffName"
-                                maxlength="250"
-                                value="{{ old('staffName', $staff['staffName']) }}"
-                                required
+                                value="{{ $staff['staffName'] ?: '-' }}"
+                                disabled
                             >
                         </div>
 
@@ -136,20 +135,22 @@
                             <label for="department">Department</label>
                             <input
                                 id="department"
+                                class="readonly-field"
                                 type="text"
-                                name="department"
-                                maxlength="50"
-                                value="{{ old('department', $staff['department']) }}"
+                                value="{{ $staff['department'] ?: '-' }}"
+                                disabled
                             >
                         </div>
 
                         <div class="field">
                             <label for="gender">Gender</label>
-                            <select id="gender" name="gender">
-                                <option value="">Select gender</option>
-                                <option value="Male" {{ old('gender', $staff['gender']) === 'Male' ? 'selected' : '' }}>Male</option>
-                                <option value="Female" {{ old('gender', $staff['gender']) === 'Female' ? 'selected' : '' }}>Female</option>
-                            </select>
+                            <input
+                                id="gender"
+                                class="readonly-field"
+                                type="text"
+                                value="{{ $staff['gender'] ?: '-' }}"
+                                disabled
+                            >
                         </div>
 
                         <div class="field">
@@ -158,6 +159,7 @@
                                 <option value="">Select status</option>
                                 <option value="Single" {{ old('maritalStatus', $staff['maritalStatus']) === 'Single' ? 'selected' : '' }}>Single</option>
                                 <option value="Married" {{ old('maritalStatus', $staff['maritalStatus']) === 'Married' ? 'selected' : '' }}>Married</option>
+                                <option value="Divorced" {{ old('maritalStatus', $staff['maritalStatus']) === 'Divorced' ? 'selected' : '' }}>Divorced</option>
                             </select>
                         </div>
 
@@ -165,10 +167,10 @@
                             <label for="race">Race</label>
                             <input
                                 id="race"
+                                class="readonly-field"
                                 type="text"
-                                name="race"
-                                maxlength="50"
-                                value="{{ old('race', $staff['race']) }}"
+                                value="{{ $staff['race'] ?: '-' }}"
+                                disabled
                             >
                         </div>
 
@@ -207,7 +209,7 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="primary-btn">Save Changes</button>
+                        <button type="submit" class="primary-btn">Save</button>
                     </div>
                 </form>
             </section>
@@ -262,7 +264,7 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="primary-btn">Update Password</button>
+                        <button type="submit" class="primary-btn">Update</button>
                     </div>
                 </form>
             </section>

@@ -1,0 +1,19 @@
+TrainHub Al Amin - FIX5 Session Persistence
+Date: 2026-09-09
+
+Attendance participant session persistence fix:
+- The selected attendance session is now kept in the page URL as attendanceSession.
+- Approve Attendance carries attendanceSessionID through POST and redirects back to the same session.
+- Set Not Approved carries attendanceSessionID through POST and redirects back to the same session.
+- Save Attendance Remark carries attendanceSessionID through POST and redirects back to the same session.
+- Error redirects for the same attendance actions also return to the same selected session.
+- Clicking Session 1 / Session 2 / later session tabs updates the current URL without reloading, so a browser refresh keeps the same session selected.
+- Attendance redirects include #attendanceParticipants so the page returns to the participant attendance area rather than the top of the Training page.
+
+Example:
+Session 2 selected -> Approve participant -> page reloads -> Session 2 remains selected.
+
+Validation:
+- 94 PHP/Blade files passed php -l.
+- Course page inline JavaScript passed node --check syntax validation.
+- course.php Laravel route resolves to CourseController@index.

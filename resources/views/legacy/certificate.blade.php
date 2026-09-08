@@ -34,7 +34,7 @@
         <p id="appModalMessage">Are you sure?</p>
         <div class="app-modal-actions" id="appModalActions">
             <button type="button" class="secondary-btn" id="appModalCancel">Cancel</button>
-            <button type="button" class="primary-btn" id="appModalConfirm">Yes, continue</button>
+            <button type="button" class="primary-btn" id="appModalConfirm">Yes</button>
         </div>
     </div>
 </div>
@@ -71,7 +71,6 @@
         <section class="cert-panel">
             <div class="panel-title">
                 <h2>Upload Template</h2>
-                <span>certificate_template</span>
             </div>
 
             <form method="POST" enctype="multipart/form-data" class="cert-form confirm-form" data-confirm="Upload this certificate template?">
@@ -89,7 +88,6 @@
         <section class="cert-panel">
             <div class="panel-title">
                 <h2>Select Course Details</h2>
-                <span>course + session + trainer</span>
             </div>
 
             <form method="GET" class="cert-form">
@@ -147,7 +145,6 @@
             <div>
                 <h2>Choose Certificate Content & Positions</h2>
             </div>
-            <span>certificate_position</span>
         </div>
 
         <?php if ($selectedTemplate) { ?>
@@ -284,7 +281,6 @@
             <div>
                 <h2>Generate Certificate</h2>
             </div>
-            <span>certificate</span>
         </div>
 
 
@@ -394,7 +390,6 @@
         <div class="panel-title">
             <div>
                 <h2>Generated Certificate List</h2>
-                <p class="panel-subtitle">Courses stay collapsed to keep the page short. Click a course to view its sessions and certificates.</p>
             </div>
             <span><?php echo e($totalGeneratedCertificateCount); ?> certificate(s)</span>
         </div>
@@ -515,10 +510,10 @@
 
                                     <div class="download-toolbar-actions">
                                         <strong class="course-selected-download-count">0 selected</strong>
-                                        <button type="submit" name="download_certificates" class="primary-btn download-selected-btn">
+                                        <button type="button" class="primary-btn download-selected-btn" data-bulk-certificate-action="download">
                                             Download Certificates
                                         </button>
-                                        <button type="submit" name="send_certificates" class="secondary-btn send-selected-btn" data-confirm="Send selected certificate(s) to participant email?">
+                                        <button type="button" class="secondary-btn send-selected-btn" data-bulk-certificate-action="email">
                                             Email Certificates
                                         </button>
                                     </div>
@@ -1001,6 +996,63 @@ function updateCourseDownloadSelection(form) {
     });
 }
 
+function submitSelectedCertificateAction(form, actionType) {
+    const selected = Array.from(form.querySelectorAll('.download-certificate-checkbox:checked'));
+
+    if (selected.length === 0) {
+        const message = actionType === 'email'
+            ? 'Please select at least one certificate to email.'
+            : 'Please select at least one certificate to download.';
+        openAppNotice(message, 'error');
+        return;
+    }
+
+    const confirmationMessage = actionType === 'email'
+        ? 'Send the selected certificate(s) to participant email?'
+        : 'Download the selected certificate(s)?';
+
+    requestAppConfirm(confirmationMessage).then(function(confirmed) {
+        if (!confirmed) return;
+
+        const actionForm = document.createElement('form');
+        actionForm.method = 'POST';
+        actionForm.action = window.location.pathname + '?tab=history';
+        actionForm.style.display = 'none';
+
+        const csrfSource = form.querySelector('input[name="csrf_token"]');
+        if (csrfSource) {
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = 'csrf_token';
+            csrf.value = csrfSource.value;
+            actionForm.appendChild(csrf);
+        }
+
+        selected.forEach(function(checkbox) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'certificateID[]';
+            input.value = checkbox.value;
+            actionForm.appendChild(input);
+        });
+
+        const action = document.createElement('input');
+        action.type = 'hidden';
+        action.name = actionType === 'email' ? 'send_certificates' : 'download_certificates';
+        action.value = '1';
+        actionForm.appendChild(action);
+
+        document.body.appendChild(actionForm);
+        actionForm.submit();
+
+        if (actionType === 'download') {
+            window.setTimeout(function() {
+                actionForm.remove();
+            }, 3000);
+        }
+    });
+}
+
 function markSelectedRowsDownloaded(form) {
     const nowText = 'Downloaded just now';
 
@@ -1026,10 +1078,27 @@ function markSelectedRowsDownloaded(form) {
 }
 
 function initCourseDownloadForm(form) {
-    if (!form || form.dataset.downloadReady === '1') return;
-    form.dataset.downloadReady = '1';
+    if (!form || form.__trainhubDownloadReady === true) return;
+    // Use a JavaScript-only flag. The certificate modal is populated by cloning
+    // hidden HTML; data-* attributes are cloned but event listeners are not.
+    // An expando property is not copied, so each modal clone gets initialized.
+    form.__trainhubDownloadReady = true;
 
     const courseSelector = form.querySelector('.course-download-select');
+    const bulkDownloadButton = form.querySelector('[data-bulk-certificate-action="download"]');
+    const bulkEmailButton = form.querySelector('[data-bulk-certificate-action="email"]');
+
+    if (bulkDownloadButton) {
+        bulkDownloadButton.addEventListener('click', function() {
+            submitSelectedCertificateAction(form, 'download');
+        });
+    }
+
+    if (bulkEmailButton) {
+        bulkEmailButton.addEventListener('click', function() {
+            submitSelectedCertificateAction(form, 'email');
+        });
+    }
 
     if (courseSelector) {
         courseSelector.addEventListener('change', function() {
@@ -1257,7 +1326,7 @@ function closeAppModal() {
     appModalOverlay.setAttribute('aria-hidden', 'true');
     appModalCancel.hidden = false;
     appModalActions.classList.remove('notice-only');
-    appModalConfirm.textContent = 'Yes, continue';
+    appModalConfirm.textContent = 'Yes';
     modalResolver = null;
 }
 
@@ -1274,7 +1343,7 @@ function requestAppConfirm(message) {
         appModalOverlay.className = 'app-modal-overlay show confirm';
         appModalOverlay.setAttribute('aria-hidden', 'false');
         appModalCancel.hidden = false;
-        appModalConfirm.textContent = 'Yes, continue';
+        appModalConfirm.textContent = 'Yes';
 
         modalResolver = function(answer) {
             closeAppModal();
@@ -1308,8 +1377,11 @@ if (appModalOverlay) {
 
 function initConfirmForms(root) {
     (root || document).querySelectorAll('.confirm-form').forEach(function(form) {
-        if (!form || form.dataset.confirmReady === '1') return;
-        form.dataset.confirmReady = '1';
+        if (!form || form.__trainhubConfirmReady === true) return;
+        // Do not store this state in data-* attributes because modal HTML is
+        // cloned. JavaScript properties are not cloned, so listeners attach to
+        // the visible popup form correctly.
+        form.__trainhubConfirmReady = true;
         form.addEventListener('submit', function(event) {
         if (form.dataset.customConfirmed === '1') {
             delete form.dataset.customConfirmed;

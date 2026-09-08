@@ -54,20 +54,22 @@ function setAuditStaff($conn) {
 }
 
 function generateNextID($conn, $tableName, $columnName, $prefix) {
-    $safeTable = mysqli_real_escape_string($conn, $tableName);
-    $safeColumn = mysqli_real_escape_string($conn, $columnName);
-    $safePrefix = mysqli_real_escape_string($conn, $prefix);
+    $safeTable = preg_replace('/[^A-Za-z0-9_]/', '', (string)$tableName);
+    $safeColumn = preg_replace('/[^A-Za-z0-9_]/', '', (string)$columnName);
+    $prefixLength = strlen($prefix);
 
-    $result = mysqli_query($conn, "
+    $stmt = mysqli_prepare($conn, "
         SELECT `$safeColumn` AS current_id
         FROM `$safeTable`
-        WHERE `$safeColumn` LIKE '$safePrefix%'
+        WHERE LEFT(`$safeColumn`, ?) = ?
     ");
+    mysqli_stmt_bind_param($stmt, 'is', $prefixLength, $prefix);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
 
     $maxNo = 0;
-
     while ($row = mysqli_fetch_assoc($result)) {
-        if (preg_match('/(\d+)$/', $row['current_id'], $match)) {
+        if (preg_match('/(\d+)$/', (string)$row['current_id'], $match)) {
             $maxNo = max($maxNo, (int)$match[1]);
         }
     }
@@ -297,11 +299,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     trainerPic,
                     averageRating,
                     status,
-                    paymentStatus,
-                    created_at,
-                    updated_at
+                    paymentStatus
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
             mysqli_stmt_bind_param(
@@ -360,8 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     expertise = ?,
                     trainerPic = ?,
                     status = ?,
-                    paymentStatus = ?,
-                    updated_at = CURRENT_TIMESTAMP
+                    paymentStatus = ?
                 WHERE trainerID = ?
             ");
 
@@ -438,7 +437,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mustArchive = ($certificateTotal > 0 || $feedbackTotal > 0);
 
             if ($mustArchive) {
-                $stmt = mysqli_prepare($conn, "UPDATE trainer SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE trainerID = ?");
+                $stmt = mysqli_prepare($conn, "UPDATE trainer SET status = 'inactive' WHERE trainerID = ?");
                 mysqli_stmt_bind_param($stmt, 's', $trainerID);
                 mysqli_stmt_execute($stmt);
 
@@ -470,23 +469,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mysqli_stmt_bind_param($stmt, 's', $trainerID);
                 mysqli_stmt_execute($stmt);
 
-                $stmt = mysqli_prepare($conn, 'DELETE FROM trainer WHERE trainerID = ?');
-                mysqli_stmt_bind_param($stmt, 's', $trainerID);
-                mysqli_stmt_execute($stmt);
+                try {
+                    $stmt = mysqli_prepare($conn, 'DELETE FROM trainer WHERE trainerID = ?');
+                    mysqli_stmt_bind_param($stmt, 's', $trainerID);
+                    mysqli_stmt_execute($stmt);
 
-                if (mysqli_stmt_affected_rows($stmt) === 0) {
-                    throw new Exception('Trainer record was not found.');
-                }
-
-                foreach ($documentFiles as $filePath) {
-                    $diskFile = resolvePublicFilePath($filePath);
-                    if ($diskFile && is_file($diskFile)) {
-                        @unlink($diskFile);
+                    if (mysqli_stmt_affected_rows($stmt) === 0) {
+                        throw new Exception('Trainer record was not found.');
                     }
-                }
 
-                $_SESSION['flash_message'] = 'Trainer deleted successfully.';
-                $_SESSION['flash_type'] = 'success';
+                    foreach ($documentFiles as $filePath) {
+                        $diskFile = resolvePublicFilePath($filePath);
+                        if ($diskFile && is_file($diskFile)) {
+                            @unlink($diskFile);
+                        }
+                    }
+
+                    $_SESSION['flash_message'] = 'Trainer deleted successfully.';
+                    $_SESSION['flash_type'] = 'success';
+                } catch (mysqli_sql_exception $deleteError) {
+                    // The combined database can gain new historical references
+                    // from the other systems. If a FK prevents hard deletion,
+                    // keep history safely and remove the trainer from active use.
+                    $stmt = mysqli_prepare($conn, "UPDATE trainer SET status = 'inactive' WHERE trainerID = ?");
+                    mysqli_stmt_bind_param($stmt, 's', $trainerID);
+                    mysqli_stmt_execute($stmt);
+                    $_SESSION['flash_message'] = 'Trainer removed from the active list. Historical linked records were preserved.';
+                    $_SESSION['flash_type'] = 'success';
+                }
             }
 
             mysqli_commit($conn);
@@ -772,15 +782,31 @@ $expertiseOptions = mysqli_query($conn, "
     LIMIT 50
 ");
 
-$topRatedTrainers = mysqli_query($conn, "
+$topRatedResult = mysqli_query($conn, "
     SELECT
         t.trainerID,
         t.trainerName,
         t.trainerPic,
+        t.trainerIC,
+        t.trainerEmail,
+        t.trainerPhoneNo,
         t.expertise,
-        $displayRatingSelect
+        t.status,
+        t.paymentStatus,
+        $displayRatingSelect,
+        COALESCE(s.sessionCount, 0) AS sessionCount
     FROM trainer t
     $feedbackRatingJoin
+    LEFT JOIN (
+        SELECT trainerID, COUNT(*) AS sessionCount
+        FROM session_trainer
+        GROUP BY trainerID
+    ) s ON s.trainerID = t.trainerID
+    WHERE COALESCE(t.status, 'active') <> 'inactive'
     ORDER BY displayRating DESC, t.trainerName ASC
     LIMIT 3
 ");
+$topRatedRows = [];
+while ($topRatedRow = $topRatedResult ? mysqli_fetch_assoc($topRatedResult) : null) {
+    $topRatedRows[] = $topRatedRow;
+}

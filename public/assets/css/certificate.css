@@ -2883,3 +2883,85 @@ body.certificate-modal-lock {
 .certificate-list-modal-body .grouped-cert-table td {
     vertical-align:middle;
 }
+
+
+/* 2026-09-09 standardized certificate notices/confirmations */
+body.page-certificate .app-modal-overlay{z-index:12000!important;background:rgba(15,23,42,.50)!important;backdrop-filter:none!important;padding:20px!important;}
+body.page-certificate .app-modal-box{width:min(390px,94vw)!important;border:1px solid #E2E8F0!important;border-radius:18px!important;background:#fff!important;box-shadow:0 26px 70px rgba(15,23,42,.24)!important;padding:24px!important;text-align:center!important;}
+body.page-certificate .app-modal-icon{width:48px!important;height:48px!important;margin:0 auto 12px!important;font-size:22px!important;}
+body.page-certificate .app-modal-box h3{margin:0 0 8px!important;color:#0F172A!important;font-size:18px!important;font-weight:800!important;}
+body.page-certificate .app-modal-box p{margin:0!important;color:#64748B!important;font-size:13px!important;font-weight:400!important;line-height:1.6!important;}
+body.page-certificate .app-modal-actions{display:flex!important;justify-content:center!important;gap:10px!important;margin-top:20px!important;padding:0!important;border:0!important;}
+body.page-certificate .app-modal-actions .primary-btn,body.page-certificate .app-modal-actions .secondary-btn{min-width:105px!important;width:auto!important;height:40px!important;border:0!important;border-radius:10px!important;font-size:12px!important;font-weight:800!important;}
+body.page-certificate .app-modal-overlay.confirm .app-modal-icon{background:#FEF2F2!important;color:#DC2626!important;}
+body.page-certificate .app-modal-overlay.confirm .primary-btn{background:#16A34A!important;color:#fff!important;}
+body.page-certificate .app-modal-overlay.confirm .primary-btn:hover{background:#22C55E!important;color:#fff!important;}
+body.page-certificate .app-modal-actions .secondary-btn{background:#F1F5F9!important;color:#334155!important;border:1px solid #CBD5E1!important;}
+body.page-certificate .app-modal-actions .secondary-btn:hover{background:#E2E8F0!important;color:#1E293B!important;}
+
+/* FIX6: keep generated course cards compact instead of stretching across the full panel. */
+.generated-history-panel .certificate-course-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 320px)) !important;
+    justify-content: start;
+    align-items: start;
+    gap: 12px;
+}
+
+.generated-history-panel .certificate-course-accordion {
+    width: 100%;
+    max-width: 320px;
+}
+
+.generated-history-panel .certificate-course-toggle {
+    min-height: 66px;
+    padding: 10px 12px !important;
+    grid-template-columns: 42px minmax(0, 1fr) auto !important;
+}
+
+.generated-history-panel .course-accordion-icon {
+    width: 40px;
+    height: 40px;
+}
+
+.generated-history-panel .course-accordion-status span {
+    min-height: 30px;
+    padding: 0 10px;
+}
+
+@media (max-width: 700px) {
+    .generated-history-panel .certificate-course-list {
+        grid-template-columns: 1fr !important;
+    }
+
+    .generated-history-panel .certificate-course-accordion {
+        max-width: none;
+    }
+}
+
+
+/* =========================================================
+   2026-09-09 FIX7 — Certificate bulk action colours
+   Email is a soft green action and stays readable on hover.
+========================================================= */
+body.page-certificate .send-selected-btn {
+    background: #DCFCE7 !important;
+    border-color: #86EFAC !important;
+    color: #166534 !important;
+    box-shadow: none !important;
+}
+body.page-certificate .send-selected-btn::before {
+    color: currentColor !important;
+}
+body.page-certificate .send-selected-btn:hover:not(:disabled),
+body.page-certificate .send-selected-btn:focus-visible {
+    background: #BBF7D0 !important;
+    border-color: #4ADE80 !important;
+    color: #14532D !important;
+}
+body.page-certificate .send-selected-btn:hover :is(span,strong,svg),
+body.page-certificate .send-selected-btn:focus-visible :is(span,strong,svg) {
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}

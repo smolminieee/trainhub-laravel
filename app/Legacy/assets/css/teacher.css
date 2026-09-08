@@ -1832,3 +1832,77 @@ body.modal-open {
     }
 }
 
+
+
+/* 2026-09-08 teacher list + organisation refinements */
+.page-teacher .dashboard-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.page-teacher .header-back-to-school{margin-left:auto;align-self:center;display:inline-flex;align-items:center;gap:8px;text-decoration:none;white-space:nowrap}
+.page-teacher .header-back-to-school svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.page-teacher .selected-school-bar{justify-content:flex-start}
+.page-teacher .list-search-box{position:relative;height:46px;padding:0;background:#fff;border:1px solid #dbe4f0;border-radius:12px;overflow:hidden}
+.page-teacher .list-search-box svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:18px;height:18px;z-index:2;pointer-events:none;color:#64748b;stroke:currentColor}
+.page-teacher .list-search-box input{height:100%;padding:0 14px 0 46px;font-size:13px;border:0!important;box-shadow:none!important;background:transparent!important}
+.page-teacher .original-badge{background:#eaf8ef!important;color:#16803d!important}
+.page-teacher .replace-badge{background:#fff5cc!important;color:#9a6700!important}
+.page-teacher .assign-toggle-btn{width:84px;min-width:84px;height:40px;padding:0 12px;background:#2563eb;color:#fff;border:1px solid #2563eb;box-shadow:none}
+.page-teacher .assign-toggle-btn[data-mode="edit"]{background:#fff5cc!important;color:#9a6700!important;border-color:#f6d56b!important;box-shadow:none!important}
+.page-teacher .assign-toggle-btn:hover{filter:none;opacity:1}
+.page-teacher .assign-toggle-btn:not([data-mode="edit"]):hover{background:#1d4ed8;color:#fff}
+.page-teacher .assign-toggle-btn[data-mode="edit"]:hover{background:#ffefad!important;color:#7c5200!important}
+.page-teacher .organisation-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px}
+.page-teacher .organisation-card{display:flex;align-items:flex-start;gap:14px;padding:18px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;box-shadow:0 8px 22px rgba(15,23,42,.04)}
+.page-teacher .organisation-avatar{width:46px;height:46px;min-width:46px;border-radius:12px;display:grid;place-items:center;background:#eff6ff;color:#2563eb;font-size:17px;font-weight:900}
+.page-teacher .organisation-details{min-width:0;flex:1}
+.page-teacher .organisation-details h3{margin:0 0 10px;color:#0f172a;font-size:15px}
+.page-teacher .organisation-details p{margin:10px 0 0;color:#64748b;font-size:12px;line-height:1.55}
+.page-teacher .organisation-meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:#475569;font-size:11.5px}
+.page-teacher .organisation-meta span{display:flex;gap:6px}.page-teacher .organisation-meta strong{color:#64748b;font-weight:800}
+@media(max-width:900px){.page-teacher .organisation-list{grid-template-columns:1fr}.page-teacher .dashboard-header{align-items:stretch}.page-teacher .header-back-to-school{align-self:flex-start}}
+
+/* 2026-09-09 new-teacher search and assignment controls */
+body.page-teacher .list-search-box {
+    position:relative!important;
+    height:46px!important;
+    padding:0!important;
+    overflow:hidden!important;
+    background:#fff!important;
+    border:1px solid #dbe4f0!important;
+    border-radius:14px!important;
+}
+body.page-teacher .list-search-box svg {
+    position:absolute!important;
+    left:15px!important;
+    top:50%!important;
+    transform:translateY(-50%)!important;
+    width:18px!important;
+    height:18px!important;
+    z-index:3!important;
+    pointer-events:none!important;
+    fill:none!important;
+    stroke:#334155!important;
+}
+body.page-teacher .list-search-box input[type="search"] {
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    padding:0 15px 0 48px!important;
+    border:0!important;
+    border-radius:0!important;
+    outline:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+}
+body.page-teacher .list-search-box:focus-within {
+    border-color:#93c5fd!important;
+    box-shadow:0 0 0 3px rgba(37,99,235,.08)!important;
+}
+body.page-teacher .assign-toggle-btn[data-mode="edit"] {
+    background:#dbeafe!important;
+    color:#1d4ed8!important;
+    border-color:#bfdbfe!important;
+}
+body.page-teacher .assign-toggle-btn[data-mode="edit"]:hover {
+    background:#bfdbfe!important;
+    color:#1e40af!important;
+    border-color:#93c5fd!important;
+}

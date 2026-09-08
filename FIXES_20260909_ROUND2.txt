@@ -1,0 +1,54 @@
+TrainHub Al Amin - 2026-09-09 Round 2 Fixes
+
+Observer assignment
+- Edit button is light blue; Assign remains blue.
+- Assignment modal opening uses delegated events and dialogs are moved to body level.
+- Save no longer depends on the clicked submit button name; assign_observer is a hidden form marker.
+- Editing an assignment updates only the selected new teacher assignment row (assignmentID + gn_id).
+- Observer/external observer roles saved from the assignment screen are kept active while selected.
+- Existing observer identities are not silently reassigned to another teacher when an assignment is edited.
+- Standard confirmation Yes button is green for non-destructive actions.
+
+Trainer popups / scroll lock
+- Repaired malformed trainer modal HTML (missing edit-modal closing wrapper and stray Add Trainer form wrapper).
+- All trainer modals and delete confirmation are moved directly under body on DOMContentLoaded.
+- Add Trainer, eye/details, Top Rated Trainer and Expertise now use the same modal layer/manager.
+- Closing a trainer modal recalculates body scroll lock; no backdrop blur is used by trainer modals.
+- Delete Trainer and Delete Document confirmations remain functional above update modals.
+
+Button hover readability
+- Added final shared hover rules so text/icons stay visible.
+- Primary hovers use a brighter blue instead of very dark blue.
+- Neutral, danger, close and trainer actions keep readable contrast.
+- Observer Edit hover stays light blue.
+
+Feedback form library
+- Preview, View Responses, Anonymous, PDF, Edit, Duplicate and Delete now use distinct soft semantic colors.
+- Management buttons use equal flex widths, including Duplicate.
+- Feedback tabs match Teacher/Certificate navigation styling.
+
+Feedback answer images and responses
+- Selected answer image filename and thumbnail preview are shown immediately.
+- Answer images are stored under public/uploads/feedback_answers and are browser-accessible.
+- Public upload directories are included in this package.
+- Feedback submission includes a persistent hidden submit_feedback marker.
+- Response rows are committed before secondary feedback-completion/rating refreshes, preventing those secondary operations from rolling back valid answers.
+- Participant/staff response insert remains aligned with V6 feedback_response columns.
+
+Feedback builder / edit
+- Required toggles are independent and the switch knob tracks Required/Optional correctly.
+- Coordinator Review image-answer questions no longer show a Reference Image upload field.
+- Coordinator answer pages upload the image only when the coordinator answers.
+- Edit Feedback modals are moved to body level and fixed to the viewport to remove the surrounding white-frame/stacking issue.
+- Feedback confirmations use Yes instead of Yes, Continue.
+
+Certificate popups
+- Certificate success/notice/confirmation popup styling now follows the shared TrainHub popup dimensions and spacing.
+- Certificate confirmation uses Yes and non-destructive confirm is green.
+
+Validation
+- 94 PHP/Blade files pass php -l.
+- 7 relevant inline JavaScript blocks pass node --check after template fragments are neutralized.
+- Teacher, Trainer, Feedback and Certificate routes resolve.
+- Public and app/Legacy CSS copies are synchronized.
+- Live MySQL/XAMPP runtime testing is still required on the user's machine/server.

@@ -1,0 +1,10 @@
+TrainHub V6 - Feedback Fix Round 3 (2026-09-09)
+
+- Feedback library action buttons now keep distinct colors at rest, not only on hover.
+- Removed Reference Image upload from participant feedback builder/edit forms and dynamic added questions/categories.
+- Legacy question reference images are no longer displayed on the answer page.
+- Participant feedback submission now stores response rows in one explicit transaction.
+- Participant verification uses registered course email; attendance is kept as a certificate-eligibility rule instead of blocking feedback storage.
+- Added row locking and database duplicate check so each participant can submit each feedback form only once, including double-click/concurrent requests.
+- Image-answer uploads remain supported for respondents.
+- Secondary completion/rating refresh errors cannot roll back committed answers.

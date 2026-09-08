@@ -2873,3 +2873,54 @@ body.page-trainer .delete-confirm-backdrop{z-index:5300!important}
 body.page-trainer .primary-btn:hover{background:#1D4ED8!important;color:#fff!important;opacity:1!important;visibility:visible!important}
 body.page-trainer .danger-btn:hover{background:#B91C1C!important;color:#fff!important;opacity:1!important;visibility:visible!important}
 body.page-trainer .danger-outline-btn:hover{background:#FEF2F2!important;color:#B91C1C!important;border-color:#FCA5A5!important;opacity:1!important;visibility:visible!important}
+
+
+/* 2026-09-08 trainer modal, top-rated and hover fixes */
+.page-trainer .modal{display:none;position:fixed;inset:0;z-index:13000!important;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.48);backdrop-filter:blur(5px)}
+.page-trainer .modal[aria-hidden="false"]{display:flex!important}
+.page-trainer .modal-box{position:relative;z-index:13001}
+.page-trainer .top-trainer-item{width:100%;font:inherit;text-align:left;cursor:pointer;color:inherit;appearance:none}
+.page-trainer .top-trainer-item:hover{color:inherit!important}
+.page-trainer .top-trainer-item:hover :is(strong,span){opacity:1!important;visibility:visible!important;color:inherit}
+.page-trainer .top-rating{color:#0f172a}
+.page-trainer .top-rated-detail-modal{width:min(720px,94vw)}
+.page-trainer :is(.action-btn,.expertise-open-btn,.primary-btn,.cancel-btn,.inline-action-btn):hover :is(svg,span,strong){opacity:1!important;visibility:visible!important}
+.page-trainer .action-btn:hover svg{stroke:currentColor!important}
+
+/* 2026-09-09 stable trainer modal + confirmation behaviour */
+body.page-trainer .modal {
+    display:none!important;
+    position:fixed!important;
+    inset:0!important;
+    z-index:13000!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:20px!important;
+    overflow-y:auto!important;
+    background:rgba(15,23,42,.48)!important;
+    backdrop-filter:blur(3px)!important;
+}
+body.page-trainer .modal.is-open { display:flex!important; }
+body.page-trainer .modal[hidden] { display:none!important; }
+body.page-trainer .modal-box { position:relative!important; z-index:13001!important; max-height:90vh!important; overflow-y:auto!important; }
+body.page-trainer .delete-confirm-backdrop {
+    display:none!important;
+    z-index:21000!important;
+    background:rgba(15,23,42,.48)!important;
+    backdrop-filter:blur(3px)!important;
+}
+body.page-trainer .delete-confirm-backdrop.is-open { display:flex!important; }
+body.page-trainer.modal-open { overflow:hidden!important; }
+/* Keep the navigation readable while a trainer popup is open. The overlay itself
+   already separates the modal from the page, so an additional header blur is unnecessary. */
+body.page-trainer:is(.modal-open,.ui-modal-open,.has-modal-open) #appTopbar {
+    filter:none!important;
+    opacity:1!important;
+    visibility:visible!important;
+}
+/* Do not blur the page/header behind trainer dialogs; a translucent overlay is enough. */
+body.page-trainer .modal,
+body.page-trainer .delete-confirm-backdrop {
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+}

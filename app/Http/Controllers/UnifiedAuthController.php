@@ -113,14 +113,15 @@ class UnifiedAuthController extends Controller
             }
 
             $this->applyRoleSessionAliases($role, (array) ($user['roles'][$role] ?? []));
-            unset($_SESSION['selected_system']);
-
-            // Staff EDU login/logout auditing belongs to the shared TrainHub
-            // login_session table. Create it once when the Staff EDU role is
-            // selected, even if the user then opens Aidid's admin workspace.
+            // Staff EDU is authenticated through this unified gateway even when
+            // they later open Aidid or Izz. Start TrainHub's login_session as soon
+            // as the Staff EDU role is selected so LOGIN/LOGOUT auditing remains
+            // complete for the central login flow. Selecting Nureen later is
+            // idempotent because prepareNureenStaffSession() reuses the session.
             if ($role === 'staff_edu') {
                 $this->prepareNureenStaffSession($user, $role);
             }
+            unset($_SESSION['selected_system']);
 
             return redirect()->route('auth.systems');
         }
@@ -267,7 +268,8 @@ class UnifiedAuthController extends Controller
             $_SESSION['externalObserverID'],
             $_SESSION['external_observer_id'],
             $_SESSION['role'],
-            $_SESSION['loginSessionID']
+            $_SESSION['loginSessionID'],
+            $_SESSION['login_session_id']
         );
     }
 
@@ -294,7 +296,8 @@ class UnifiedAuthController extends Controller
             $_SESSION['externalObserverID'],
             $_SESSION['external_observer_id'],
             $_SESSION['role'],
-            $_SESSION['loginSessionID']
+            $_SESSION['loginSessionID'],
+            $_SESSION['login_session_id']
         );
     }
 
@@ -360,9 +363,13 @@ class UnifiedAuthController extends Controller
     private function closeStaffLoginSession(): void
     {
         $staffID = (string) ($_SESSION['staffID'] ?? $_SESSION['staff_id'] ?? '');
-        $loginSessionID = (int) ($_SESSION['loginSessionID'] ?? 0);
+        $staffName = (string) ($_SESSION['staffName'] ?? $_SESSION['staff_name'] ?? $staffID);
+        $loginSessionID = (int) ($_SESSION['loginSessionID'] ?? $_SESSION['login_session_id'] ?? 0);
 
-        if ($staffID === '') {
+        // Only close the login_session created by this TrainHub browser session.
+        // A Staff EDU user may choose Aidid or Izz from the unified gateway, and
+        // that must never close another active TrainHub login for the same staff.
+        if ($staffID === '' || $loginSessionID <= 0) {
             return;
         }
 
@@ -371,27 +378,19 @@ class UnifiedAuthController extends Controller
                 return;
             }
 
-            $query = DB::table('login_session')
+            DB::statement('SET @current_staff_id = ?, @current_staff_name = ?', [$staffID, $staffName]);
+            $updated = DB::table('login_session')
                 ->where('staffID', $staffID)
-                ->where('sessionStatus', 'active');
+                ->where('sessionID', $loginSessionID)
+                ->where('sessionStatus', 'active')
+                ->update([
+                    'logoutTime' => now(),
+                    'sessionStatus' => 'ended',
+                ]);
 
-            if ($loginSessionID > 0) {
-                $query->where('sessionID', $loginSessionID);
-            } else {
-                $latest = (clone $query)
-                    ->orderByDesc('loginTime')
-                    ->orderByDesc('sessionID')
-                    ->value('sessionID');
-                if ($latest === null) {
-                    return;
-                }
-                $query->where('sessionID', $latest);
+            if ($updated > 0) {
+                $this->ensureStaffAuditFallback($staffID, $staffName, 'LOGOUT', 'Staff logged out.');
             }
-
-            $query->update([
-                'logoutTime' => now(),
-                'sessionStatus' => 'ended',
-            ]);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -416,7 +415,7 @@ class UnifiedAuthController extends Controller
         $_SESSION['staff_name'] = $staffName;
         $_SESSION['role'] = 'STAFF_EDU';
 
-        if (!empty($_SESSION['loginSessionID'])) {
+        if (!empty($_SESSION['loginSessionID']) || !empty($_SESSION['login_session_id'])) {
             return;
         }
 
@@ -434,8 +433,47 @@ class UnifiedAuthController extends Controller
 
             if ((int) $sessionID > 0) {
                 $_SESSION['loginSessionID'] = (int) $sessionID;
+                $_SESSION['login_session_id'] = (int) $sessionID;
+                $this->ensureStaffAuditFallback($staffID, $staffName, 'LOGIN', 'Staff logged in.');
             }
         } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Canonical V6 contains trg_login_audit and trg_logout_audit. This fallback
+     * only writes the audit row when that trigger is not installed, so a partial
+     * database import still records Staff EDU login/logout without duplicating
+     * rows on the canonical database.
+     */
+    private function ensureStaffAuditFallback(string $staffID, string $staffName, string $actionType, string $message): void
+    {
+        try {
+            if (!DB::getSchemaBuilder()->hasTable('audit_log')) {
+                return;
+            }
+
+            $expectedTrigger = $actionType === 'LOGIN' ? 'trg_login_audit' : 'trg_logout_audit';
+            $triggerExists = (int) (DB::table('information_schema.TRIGGERS')
+                ->where('TRIGGER_SCHEMA', DB::raw('DATABASE()'))
+                ->where('TRIGGER_NAME', $expectedTrigger)
+                ->count()) > 0;
+
+            if ($triggerExists) {
+                return;
+            }
+
+            DB::table('audit_log')->insert([
+                'staffID' => $staffID,
+                'userName' => $staffName !== '' ? $staffName : $staffID,
+                'actionType' => $actionType,
+                'tableName' => 'login_session',
+                'newValue' => $message,
+                'actionDate' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // Do not block logout/login if an environment restricts metadata reads.
             report($e);
         }
     }

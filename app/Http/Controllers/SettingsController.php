@@ -150,7 +150,6 @@ class SettingsController extends Controller
     private function updateProfile(Request $request, string $staffID): RedirectResponse
     {
         $validator = Validator::make($request->all(), [
-            'staffName' => ['required', 'string', 'max:250'],
             'phoneNumber' => ['nullable', 'string', 'max:20'],
             'email' => [
                 'nullable',
@@ -159,12 +158,8 @@ class SettingsController extends Controller
                 Rule::unique('staff_edu', 'email')->ignore($staffID, 'staffID'),
             ],
             'maritalStatus' => ['nullable', 'string', 'max:20'],
-            'gender' => ['nullable', 'string', 'max:10'],
             'address' => ['nullable', 'string', 'max:255'],
-            'race' => ['nullable', 'string', 'max:50'],
-            'department' => ['nullable', 'string', 'max:50'],
         ], [
-            'staffName.required' => 'Staff name is required.',
             'email.email' => 'Please enter a valid email address.',
             'email.unique' => 'That email address is already used by another staff account.',
         ]);
@@ -180,51 +175,56 @@ class SettingsController extends Controller
         }
 
         $data = $validator->validated();
-        foreach (['phoneNumber', 'email', 'maritalStatus', 'gender', 'address', 'race', 'department'] as $field) {
+        foreach (['phoneNumber', 'email', 'maritalStatus', 'address'] as $field) {
             $value = isset($data[$field]) ? trim((string) $data[$field]) : '';
             $data[$field] = $value === '' ? null : $value;
         }
-        $data['staffName'] = trim((string) $data['staffName']);
 
         try {
             $changed = DB::transaction(function () use ($staffID, $data): bool {
                 $old = DB::table('staff_edu')
                     ->where('staffID', $staffID)
                     ->lockForUpdate()
-                    ->first([
-                        'staffName', 'phoneNumber', 'email', 'maritalStatus',
-                        'gender', 'address', 'race', 'department',
-                    ]);
+                    ->first(['staffName', 'phoneNumber', 'email', 'maritalStatus', 'address']);
 
                 if (!$old) {
                     throw new \RuntimeException('The staff account could not be found.');
                 }
 
                 $newValues = [
-                    'staffName' => $data['staffName'],
                     'phoneNumber' => $data['phoneNumber'],
                     'email' => $data['email'],
                     'maritalStatus' => $data['maritalStatus'],
-                    'gender' => $data['gender'],
                     'address' => $data['address'],
-                    'race' => $data['race'],
-                    'department' => $data['department'],
                 ];
 
                 $oldValues = (array) $old;
                 $normalize = static fn ($value) => $value === null ? null : (string) $value;
+                $hasChanges = false;
                 foreach ($newValues as $key => $value) {
                     if ($normalize($oldValues[$key] ?? null) !== $normalize($value)) {
-                        DB::table('staff_edu')->where('staffID', $staffID)->update($newValues);
-                        return true;
+                        $hasChanges = true;
+                        break;
                     }
                 }
 
-                return false;
+                if (!$hasChanges) {
+                    return false;
+                }
+
+                // Canonical V6's staff_edu UPDATE trigger records this in audit_log.
+                DB::statement('SET @current_staff_id = ?, @current_staff_name = ?', [
+                    $staffID,
+                    (string) ($old->staffName ?? $staffID),
+                ]);
+                DB::table('staff_edu')->where('staffID', $staffID)->update($newValues);
+
+                return true;
             });
 
-            $_SESSION['staffName'] = $data['staffName'];
-            $_SESSION['staff_name'] = $data['staffName'];
+            if (isset($_SESSION['unified_user']) && is_array($_SESSION['unified_user'])) {
+                $_SESSION['unified_user']['email'] = (string) ($data['email'] ?? '');
+            }
 
             return $this->backWithMessage('success', $changed ? 'Profile updated successfully.' : 'No profile changes to save.');
         } catch (QueryException $e) {
@@ -269,19 +269,30 @@ class SettingsController extends Controller
                 }
 
                 $stored = (string) $staff->password;
-                $passwordInfo = password_get_info($stored);
-                $isHash = !empty($passwordInfo['algo']);
-                $currentValid = $isHash ? password_verify($current, $stored) : hash_equals($stored, $current);
+                $isHash = str_starts_with($stored, '$2y$')
+                    || str_starts_with($stored, '$2a$')
+                    || str_starts_with($stored, '$2b$')
+                    || str_starts_with($stored, '$argon2');
+
+                $currentValid = $isHash
+                    ? Hash::check($current, $stored)
+                    : hash_equals($stored, $current);
 
                 if (!$currentValid) {
                     throw new \InvalidArgumentException('Current password is incorrect.');
                 }
 
-                $newMatchesCurrent = $isHash ? password_verify($new, $stored) : hash_equals($stored, $new);
+                $newMatchesCurrent = $isHash
+                    ? Hash::check($new, $stored)
+                    : hash_equals($stored, $new);
                 if ($newMatchesCurrent) {
                     throw new \InvalidArgumentException('The new password must be different from the current password.');
                 }
 
+                DB::statement('SET @current_staff_id = ?, @current_staff_name = ?', [
+                    $staffID,
+                    (string) ($staff->staffName ?? $staffID),
+                ]);
                 $staff->password = Hash::make($new);
                 $staff->password_changed_required = 0;
                 $staff->save();

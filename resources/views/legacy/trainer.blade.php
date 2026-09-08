@@ -27,7 +27,7 @@
     <div class="dashboard-header">
         <div>
             <h1>Trainer Management</h1>
-            <p>Manage trainer profiles, documents, sessions and ratings.</p>
+            <p>Manage trainer profile, documents and ratings.</p>
         </div>
 
         <button type="button" class="primary-btn" onclick="openAddModal()">
@@ -288,40 +288,32 @@
             </div>
 
             <div class="top-trainer-list">
-                <?php 
-                $rank = 1;
-                while($top = mysqli_fetch_assoc($topRatedTrainers)) { 
-                ?>
-                    <div class="top-trainer-item">
-                        <div class="rank-badge rank-<?php echo $rank; ?>">
-                            <?php echo $rank; ?>
-                        </div>
-
-                        <div class="top-trainer-photo">
-                            <?php if (!empty($top['trainerPic'])) { ?>
-                                <img src="<?php echo e($top['trainerPic']); ?>" alt="Trainer">
-                            <?php } else { ?>
-                                <div class="top-trainer-avatar">
-                                    <?php echo strtoupper(substr($top['trainerName'], 0, 1)); ?>
-                                </div>
-                            <?php } ?>
-                        </div>
-
-                        <div class="top-trainer-info">
-                            <strong><?php echo e($top['trainerName']); ?></strong>
-                            <span><?php echo e(shortText($top['expertise'], 38)); ?></span>
-                        </div>
-
-                        <div class="top-rating">
-                            <strong><?php echo e(formatRating($top['displayRating'])); ?></strong>
-                            <?php echo renderStars($top['displayRating']); ?>
-                        </div>
-                    </div>
-                <?php 
-                    $rank++;
-                }
-                if ($rank === 1) {
-                ?>
+                <?php if (!empty($topRatedRows)) { ?>
+                    <?php foreach ($topRatedRows as $rankIndex => $top) {
+                        $rank = $rankIndex + 1;
+                        $topSafeID = preg_replace('/[^A-Za-z0-9]/', '', (string)$top['trainerID']);
+                        $topModalID = 'trainerDetail' . $topSafeID;
+                    ?>
+                        <button type="button" class="top-trainer-item" onclick="openDetailModal('<?php echo e($topModalID); ?>')" aria-label="View <?php echo e($top['trainerName']); ?> details">
+                            <div class="rank-badge rank-<?php echo $rank; ?>"><?php echo $rank; ?></div>
+                            <div class="top-trainer-photo">
+                                <?php if (!empty($top['trainerPic'])) { ?>
+                                    <img src="<?php echo e($top['trainerPic']); ?>" alt="Trainer">
+                                <?php } else { ?>
+                                    <div class="top-trainer-avatar"><?php echo e(strtoupper(substr((string)$top['trainerName'], 0, 1))); ?></div>
+                                <?php } ?>
+                            </div>
+                            <div class="top-trainer-info">
+                                <strong><?php echo e($top['trainerName']); ?></strong>
+                                <span><?php echo e(shortText($top['expertise'], 38)); ?></span>
+                            </div>
+                            <div class="top-rating">
+                                <strong><?php echo e(formatRating($top['displayRating'])); ?></strong>
+                                <?php echo renderStars($top['displayRating']); ?>
+                            </div>
+                        </button>
+                    <?php } ?>
+                <?php } else { ?>
                     <div class="top-rated-empty">No trainer rating data yet.</div>
                 <?php } ?>
             </div>
@@ -329,6 +321,48 @@
 
     </div>
 </div>
+
+<?php
+$currentTrainerIds = array_fill_keys(array_map(static fn($trainerRow) => (string)$trainerRow['trainerID'], $trainerRows), true);
+foreach ($topRatedRows as $top) {
+    if (isset($currentTrainerIds[(string)$top['trainerID']])) continue;
+    $topSafeID = preg_replace('/[^A-Za-z0-9]/', '', (string)$top['trainerID']);
+    $topModalID = 'trainerDetail' . $topSafeID;
+?>
+<div class="modal" id="<?php echo e($topModalID); ?>" aria-hidden="true">
+    <div class="modal-box trainer-detail-modal">
+        <button type="button" class="close-btn" onclick="closeDetailModal('<?php echo e($topModalID); ?>')">×</button>
+        <div class="trainer-modal-header">
+            <div class="trainer-modal-photo">
+                <?php if (!empty($top['trainerPic'])) { ?>
+                    <img src="<?php echo e($top['trainerPic']); ?>" alt="Trainer">
+                <?php } else { ?>
+                    <div class="trainer-modal-avatar"><?php echo e(strtoupper(substr((string)$top['trainerName'], 0, 1))); ?></div>
+                <?php } ?>
+            </div>
+            <div>
+                <span>Trainer Details</span>
+                <h2><?php echo e($top['trainerName']); ?></h2>
+                <p><?php echo !empty($top['expertise']) ? e($top['expertise']) : 'No expertise added.'; ?></p>
+            </div>
+        </div>
+        <div class="trainer-popup-body">
+            <div class="detail-grid compact-detail-grid">
+                <div class="detail-box"><span>Status</span><strong><?php echo e(ucfirst($top['status'] ?? 'active')); ?></strong></div>
+                <div class="detail-box"><span>Payment Status</span><strong><?php echo e(paymentStatusLabel($top['paymentStatus'] ?? 'unpaid')); ?></strong></div>
+                <div class="detail-box"><span>IC Number</span><strong><?php echo !empty($top['trainerIC']) ? e($top['trainerIC']) : '-'; ?></strong></div>
+                <div class="detail-box"><span>Rating</span><strong><?php echo e(formatRating($top['displayRating'])); ?> / 5</strong></div>
+                <div class="detail-box"><span>Email</span><strong><?php echo !empty($top['trainerEmail']) ? e($top['trainerEmail']) : '-'; ?></strong></div>
+                <div class="detail-box"><span>Phone Number</span><strong><?php echo !empty($top['trainerPhoneNo']) ? e($top['trainerPhoneNo']) : '-'; ?></strong></div>
+                <div class="detail-box detail-full"><span>Expertise</span><strong><?php echo !empty($top['expertise']) ? e($top['expertise']) : '-'; ?></strong></div>
+            </div>
+            <div class="modal-actions single-close-row">
+                <button type="button" class="cancel-btn" onclick="closeDetailModal('<?php echo e($topModalID); ?>')">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php } ?>
 
 <?php foreach($trainerRows as $row) { 
     $safeID = preg_replace('/[^A-Za-z0-9]/', '', $row['trainerID']);
@@ -638,6 +672,7 @@
             </div>
         </div>
     </div>
+</div>
 
     <?php } ?>
 
@@ -719,84 +754,60 @@
         <p id="deleteConfirmMessage">Are you sure?</p>
         <div class="delete-confirm-actions">
             <button type="button" class="cancel-btn" onclick="closeDeleteConfirm()">Cancel</button>
-            <button type="button" class="danger-btn" onclick="confirmDeleteAction()">Sure</button>
+            <button type="button" class="danger-btn" onclick="confirmDeleteAction()">Yes</button>
         </div>
     </div>
 </div>
 
 <script>
-function syncTrainerModalState() {
-    const anyOpen = Array.from(document.querySelectorAll('.modal')).some(function(modal) {
-        return window.getComputedStyle(modal).display !== 'none';
-    });
-    document.body.classList.toggle('modal-open', anyOpen);
-    if (typeof window.trainhubSyncModalState === 'function') window.trainhubSyncModalState();
+function trainerModalElement(idOrElement) {
+    return typeof idOrElement === 'string' ? document.getElementById(idOrElement) : idOrElement;
 }
 
-function openAddModal() {
-    document.getElementById('addTrainerModal').style.display = 'flex';
-    syncTrainerModalState();
+function refreshTrainerModalState() {
+    const modalOpen = !!document.querySelector('.page-trainer .modal.is-open');
+    const deleteOpen = document.getElementById('deleteConfirmPopup')?.classList.contains('is-open') || false;
+    const flashOpen = document.getElementById('flashPopup') && window.getComputedStyle(document.getElementById('flashPopup')).display !== 'none';
+    document.body.classList.toggle('modal-open', modalOpen || deleteOpen || flashOpen);
 }
 
-function closeAddModal() {
-    document.getElementById('addTrainerModal').style.display = 'none';
-    syncTrainerModalState();
+function setTrainerModal(idOrElement, open) {
+    const modal = trainerModalElement(idOrElement);
+    if (!modal) return;
+    modal.hidden = !open;
+    modal.classList.toggle('is-open', open);
+    modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) {
+        modal.scrollTop = 0;
+        const box = modal.querySelector('.modal-box');
+        if (box) box.scrollTop = 0;
+    }
+    refreshTrainerModalState();
 }
 
-function openDetailModal(id) {
-    document.getElementById(id).style.display = 'flex';
-    syncTrainerModalState();
-}
-
-function closeDetailModal(id) {
-    document.getElementById(id).style.display = 'none';
-    syncTrainerModalState();
-}
-
-function openEditModal(id) {
-    document.getElementById(id).style.display = 'flex';
-    syncTrainerModalState();
-}
-
-function closeEditModal(id) {
-    document.getElementById(id).style.display = 'none';
-    syncTrainerModalState();
-}
-
-
-window.onclick = function(event) {
-    document.querySelectorAll('.modal').forEach(function(modal) {
-        if (event.target === modal) {
-            modal.style.display = 'none';
-        }
-    });
-    syncTrainerModalState();
-}
+function openAddModal() { setTrainerModal('addTrainerModal', true); }
+function closeAddModal() { setTrainerModal('addTrainerModal', false); }
+function openDetailModal(id) { setTrainerModal(id, true); }
+function closeDetailModal(id) { setTrainerModal(id, false); }
+function openEditModal(id) { setTrainerModal(id, true); }
+function closeEditModal(id) { setTrainerModal(id, false); }
 
 function closeFlashPopup() {
     const popup = document.getElementById('flashPopup');
     if (popup) popup.style.display = 'none';
-    if (typeof window.trainhubSyncModalState === 'function') window.trainhubSyncModalState();
+    refreshTrainerModalState();
 }
 
 function openTextModal(title, text) {
-    const modal = document.getElementById('textViewModal');
     const titleEl = document.getElementById('textModalTitle');
     const bodyEl = document.getElementById('textModalBody');
     if (titleEl) titleEl.textContent = title || 'Details';
     if (bodyEl) bodyEl.textContent = text || '-';
-    if (modal) modal.style.display = 'flex';
-    syncTrainerModalState();
+    setTrainerModal('textViewModal', true);
 }
-
-function closeTextModal() {
-    const modal = document.getElementById('textViewModal');
-    if (modal) modal.style.display = 'none';
-    syncTrainerModalState();
-}
+function closeTextModal() { setTrainerModal('textViewModal', false); }
 
 let pendingDeleteForm = null;
-
 function openDeleteConfirm(form) {
     pendingDeleteForm = form;
     const popup = document.getElementById('deleteConfirmPopup');
@@ -804,16 +815,21 @@ function openDeleteConfirm(form) {
     const message = document.getElementById('deleteConfirmMessage');
     if (title) title.textContent = form.dataset.deleteTitle || 'Confirm Delete';
     if (message) message.textContent = form.dataset.deleteMessage || 'Are you sure you want to delete this record?';
-    if (popup) popup.style.display = 'flex';
-    if (typeof window.trainhubSyncModalState === 'function') window.trainhubSyncModalState();
+    if (popup) {
+        popup.classList.add('is-open');
+        popup.setAttribute('aria-hidden', 'false');
+    }
+    refreshTrainerModalState();
 }
-
 function closeDeleteConfirm() {
     pendingDeleteForm = null;
     const popup = document.getElementById('deleteConfirmPopup');
-    if (popup) popup.style.display = 'none';
+    if (popup) {
+        popup.classList.remove('is-open');
+        popup.setAttribute('aria-hidden', 'true');
+    }
+    refreshTrainerModalState();
 }
-
 function confirmDeleteAction() {
     if (!pendingDeleteForm) return;
     const form = pendingDeleteForm;
@@ -824,19 +840,55 @@ function confirmDeleteAction() {
 
 function setupActionConfirmations() {
     document.querySelectorAll('form.delete-form').forEach(function(form) {
-        if (form.dataset.confirmReady === '1') return;
-        form.dataset.confirmReady = '1';
-
+        if (form.dataset.trainerConfirmReady === '1') return;
+        form.dataset.trainerConfirmReady = '1';
         form.addEventListener('submit', function(event) {
             if (form.dataset.skipDeleteConfirm === '1') return;
             event.preventDefault();
+            event.stopPropagation();
             openDeleteConfirm(form);
         });
     });
 }
 
-document.addEventListener('DOMContentLoaded', setupActionConfirmations);
+document.addEventListener('DOMContentLoaded', function() {
+    // Keep every trainer popup as a direct child of <body>. This prevents a
+    // popup from being trapped by a table/card/update modal stacking context
+    // and guarantees Add, Details, Expertise and Top Rated use the same layer.
+    const trainerModals = Array.from(document.querySelectorAll('.page-trainer .modal'));
+    trainerModals.forEach(function(modal) {
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        modal.hidden = true;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+    });
+    const deletePopup = document.getElementById('deleteConfirmPopup');
+    if (deletePopup) {
+        if (deletePopup.parentElement !== document.body) document.body.appendChild(deletePopup);
+        deletePopup.classList.remove('is-open');
+        deletePopup.setAttribute('aria-hidden', 'true');
+    }
+    setupActionConfirmations();
+    refreshTrainerModalState();
+});
 
+document.addEventListener('click', function(event) {
+    const modal = event.target.closest('.page-trainer .modal.is-open');
+    if (modal && event.target === modal) setTrainerModal(modal, false);
+    if (event.target.id === 'deleteConfirmPopup') closeDeleteConfirm();
+});
+
+document.addEventListener('keydown', function(event) {
+    if (event.key !== 'Escape') return;
+    const deletePopup = document.getElementById('deleteConfirmPopup');
+    if (deletePopup?.classList.contains('is-open')) {
+        closeDeleteConfirm();
+        return;
+    }
+    document.querySelectorAll('.page-trainer .modal.is-open').forEach(function(modal) {
+        setTrainerModal(modal, false);
+    });
+});
 </script>
 
 </body>

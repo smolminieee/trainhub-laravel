@@ -1,0 +1,13 @@
+TrainHub V6 FIX4 - 2026-09-09
+
+Feedback Form List action buttons now use persistent soft pastel colors instead of saturated colors:
+- Preview: soft blue
+- View Responses: soft green/teal
+- Anonymous: soft purple
+- PDF: soft orange
+- Edit: soft sky blue
+- Duplicate: soft yellow/amber
+- Delete: soft red
+
+Hover states remain slightly stronger while keeping text readable.
+All prior FIX3 functional feedback fixes are retained.

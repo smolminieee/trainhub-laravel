@@ -1,0 +1,116 @@
+TrainHub Al Amin - Final Requested Changes (2026-09-08)
+=========================================================
+
+Base used
+---------
+- User's latest trainhub(1).zip worktree.
+- Database: alamin_main_database / canonical V6.
+- Existing unified-login handoff and browser/database performance fixes retained.
+
+Staff EDU login/logout
+----------------------
+- Unified Staff EDU role selection creates one login_session row and stores both
+  loginSessionID and login_session_id in the native session.
+- Canonical trg_login_audit / trg_logout_audit produce LOGIN/LOGOUT audit entries.
+- Logout updates only the login_session created by the current browser session.
+- A trigger-aware fallback writes the audit record only if the canonical trigger
+  is not installed.
+- Friend unified-login adapters send logout back through TrainHub logout.
+- Header logout control is icon-only.
+
+Teacher / New Teacher
+---------------------
+- Back to School List moved to the right side of the Teacher Management header.
+- Header wording simplified; Teacher List wording used.
+- Teacher/New Teacher IDs removed from visible list rows.
+- Organisations tab added from organizations table.
+- Search controls redesigned to prevent icon/input overlap.
+- New Teacher Assigned = soft green; Pending = soft yellow.
+- Edit = soft yellow; Assign = blue; same button width.
+- Removed assignment helper texts and Observer Assignment label.
+- Observer assignment Save label shortened to Save.
+- Assign inserts observer/external observer + observer_assignment records.
+- Edit updates records; clearing an existing role marks its assignment inactive.
+- Canonical observer/observer_assignment audit triggers record INSERT/UPDATE.
+
+Settings
+--------
+- Editable: email, phone number, marital status, address, password.
+- Other profile fields remain read-only.
+- Password comparison fixed for Laravel password hashes and legacy plaintext data.
+- Successful password change stores a new Laravel hash and sets
+  password_changed_required to 0.
+- Profile button = Save; password button = Update.
+- staff_edu UPDATE audit trigger records successful profile/password changes.
+
+Training / Sessions / QR
+------------------------
+- Header wording changed to Manage trainings and participants.
+- Registration closing date must be before or on first session date.
+- New session dates cannot be earlier than today.
+- Session date/start/end are required with red marker and inline required error.
+- End time must be later than start time (client and server validation).
+- QR expiry is optional; NULL means QR stays available until expiry is set.
+- If supplied, QR expiry must be future and within 7 days before/after session.
+- Assign Trainer is blue; Add Trainer uses a distinct soft-green action.
+- Save Training changed to Save.
+- Course/session/QR inserts use canonical audit triggers after current staff context
+  is set.
+- Generated-ID queries for Course/Session/QR (and Certificate IDs) avoid LIKE
+  prefix comparisons that could trigger utf8mb4_bin vs utf8mb4_unicode_ci errors.
+- Add Training modal display handling repaired.
+
+Trainer
+-------
+- Header wording changed to Manage trainer profile, documents and ratings.
+- Expertise detail popup repaired.
+- Top Rated Trainer items open trainer detail popups.
+- Delete Trainer handler repaired with FK-safe soft-deactivation fallback where
+  historical certificate/feedback references must be retained.
+- Button hover visibility protections keep text/icons readable.
+
+Feedback
+--------
+- Tabs redesigned to match Teacher page tabs.
+- Header wording simplified.
+- Add Category placed beside Participant Feedback Categories and Coordinator
+  Review Questions.
+- Required/Optional toggle state and dynamic question re-indexing repaired.
+- Fixed participant categories (Trainer, Course, Overall) cannot be deleted;
+  custom categories remain removable.
+- Form Setup and Question Builder/category areas are visually distinct while
+  retaining the TrainHub theme.
+- Removed obsolete builder helper copy requested by user.
+- Form List search redesigned.
+- Form List now uses server-side search/status filtering and SQL LIMIT/OFFSET
+  pagination (10 forms per page), so historical growth does not render every form.
+
+Certificate
+-----------
+- Removed the requested small schema/table helper labels from panel headers.
+- Removed the collapsed-course explanatory sentence.
+
+Performance safeguards retained
+-------------------------------
+- Dashboard remains on lightweight native calendar / CSS credit ring.
+- No FullCalendar or Chart.js reintroduced.
+- Shared MutationObservers remain throttled/incremental, not full-page rescans.
+- Course/Teacher/Trainer/Feedback data loading remains scoped/aggregated.
+- Feedback history now paginates in SQL rather than loading all form rows.
+
+Validation performed in packaging environment
+---------------------------------------------
+- 114 PHP/Blade files: php -l failures = 0.
+- 6 relevant inline JavaScript blocks checked with Node syntax parser = 0 failures
+  after replacing server-side template outputs with neutral placeholders.
+- Laravel login, dashboard, teacher and feedback routes resolved correctly.
+- CSS source/public copies for course, feedback, style, teacher and trainer match.
+- 35 static requested-change checks passed.
+
+Environment limitation
+----------------------
+- No live MySQL/MariaDB server is available in the packaging environment, so real
+  INSERT/UPDATE/trigger execution must be tested against the user's XAMPP
+  alamin_main_database after copying the project.
+- `php artisan view:cache` cannot run in this environment because its PHP build
+  lacks DOMDocument. This does not indicate a source syntax error.

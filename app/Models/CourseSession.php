@@ -6,7 +6,7 @@ class CourseSession extends TrainHubModel
 {
     protected $table = 'course_session';
     protected $primaryKey = 'sessionID';
-    public $timestamps = true;
+    public $timestamps = false;
 
     public function course()
     {

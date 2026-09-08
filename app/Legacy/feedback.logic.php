@@ -143,22 +143,25 @@ function ensureFeedbackImageAnswerSchema(mysqli $conn): void {
 function nextId(mysqli $conn, string $table, string $column, string $prefix, int $digits = 4): string {
     $safeTable = '`' . str_replace('`', '``', $table) . '`';
     $safeColumn = '`' . str_replace('`', '``', $column) . '`';
-    $regex = '^' . preg_quote($prefix, '/') . '[0-9]+$';
+    $start = strlen($prefix) + 1;
 
+    // These TrainHub ID columns use one prefix per table. Ordering the numeric
+    // suffix avoids REGEXP/LIKE comparisons with bound parameters, which can
+    // otherwise trigger collation errors in the combined database.
+    $prefixLength = strlen($prefix);
     $stmt = mysqli_prepare($conn, "
         SELECT $safeColumn AS latestID
         FROM $safeTable
-        WHERE $safeColumn REGEXP ?
+        WHERE BINARY LEFT($safeColumn, ?) = BINARY ?
         ORDER BY CAST(SUBSTRING($safeColumn, ?) AS UNSIGNED) DESC
         LIMIT 1
     ");
-    $start = strlen($prefix) + 1;
-    mysqli_stmt_bind_param($stmt, 'si', $regex, $start);
+    mysqli_stmt_bind_param($stmt, 'isi', $prefixLength, $prefix, $start);
     mysqli_stmt_execute($stmt);
     $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 
     $number = 1;
-    if ($row && !empty($row['latestID'])) {
+    if ($row && !empty($row['latestID']) && str_starts_with((string)$row['latestID'], $prefix)) {
         $number = ((int)substr((string)$row['latestID'], strlen($prefix))) + 1;
     }
 
@@ -292,7 +295,7 @@ function saveQuestionImage(string $questionID, int $categoryIndex, int $question
         return null;
     }
 
-    $dir = __DIR__ . '/uploads/feedback_questions';
+    $dir = public_path('uploads/feedback_questions');
     if (!is_dir($dir)) {
         mkdir($dir, 0775, true);
     }
@@ -329,7 +332,7 @@ function saveResponseImage(string $questionID, string $respondentKey): ?string {
         throw new RuntimeException('Image upload must be JPG, PNG, GIF, or WEBP.');
     }
 
-    $dir = __DIR__ . '/uploads/feedback_answers';
+    $dir = public_path('uploads/feedback_answers');
     if (!is_dir($dir)) {
         mkdir($dir, 0775, true);
     }
@@ -600,6 +603,19 @@ function validateFeedbackStructure(string $feedbackType, array $categoryNames, a
 }
 
 function insertFeedbackStructure(mysqli $conn, string $formID, array $categoryNames, array $questionTexts, array $questionTypes, array $requiredInputs, array $existingImages = []): void {
+    // Image questions no longer use reference images. If this project is run
+    // against an older TrainHub schema, remove the old questionImage CHECK
+    // before inserting an image-answer question.
+    $hasImageQuestion = false;
+    foreach ($questionTypes as $types) {
+        foreach ((array)$types as $type) {
+            if ((string)$type === 'image') { $hasImageQuestion = true; break 2; }
+        }
+    }
+    if ($hasImageQuestion) {
+        ensureFeedbackImageAnswerSchema($conn);
+    }
+
     foreach ($categoryNames as $catIndex => $categoryName) {
         $categoryName = trim((string)$categoryName);
         if ($categoryName === '') {
@@ -630,14 +646,9 @@ function insertFeedbackStructure(mysqli $conn, string $formID, array $categoryNa
             $isRequired = ((string)($requiredForCategory[$qIndex] ?? '0') === '1') ? 1 : 0;
             $questionOrder = ((int)$qIndex) + 1;
             $questionID = nextId($conn, 'feedback_question', 'questionID', 'FQ');
+            // Image questions are responder-upload questions. There is no
+            // reference/prompt image in the builder anymore.
             $questionImage = null;
-            if ($questionType === 'image') {
-                $questionImage = saveQuestionImage($questionID, (int)$catIndex, (int)$qIndex);
-                if ($questionImage === null) {
-                    $preservedImage = trim((string)($existingImages[$catIndex][$qIndex] ?? ''));
-                    $questionImage = $preservedImage !== '' ? $preservedImage : null;
-                }
-            }
 
             $qStmt = mysqli_prepare($conn, "
                 INSERT INTO feedback_question
@@ -1017,7 +1028,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_feedback_form'
     $questionTexts = (array)($_POST['question_text'] ?? []);
     $questionTypes = (array)($_POST['question_type'] ?? []);
     $requiredInputs = (array)($_POST['is_required'] ?? []);
-    $existingImages = (array)($_POST['existing_question_image'] ?? []);
 
     if ($formID === '' || $sessionID === '' || $title === '') {
         $message = 'Feedback form title and course session are required.';
@@ -1067,7 +1077,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_feedback_form'
                 mysqli_stmt_bind_param($deleteCategories, 's', $formID);
                 mysqli_stmt_execute($deleteCategories);
 
-                insertFeedbackStructure($conn, $formID, $categoryNames, $questionTexts, $questionTypes, $requiredInputs, $existingImages);
+                insertFeedbackStructure($conn, $formID, $categoryNames, $questionTexts, $questionTypes, $requiredInputs);
 
                 mysqli_commit($conn);
             } catch (Throwable $inner) {
@@ -1134,7 +1144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['duplicate_feedback_fo
                     ");
                     $copyQuestionText = (string)$question['questionText'];
                     $copyQuestionType = (string)$question['questionType'];
-                    $copyQuestionImage = $question['questionImage'];
+                    $copyQuestionImage = null;
                     $copyIsRequired = (int)$question['isRequired'];
                     $copyQuestionOrder = (int)$question['questionOrder'];
                     mysqli_stmt_bind_param(
@@ -1228,7 +1238,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_feedback_form'
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_feedback'])) {
     $formID = trim((string)($_POST['formID'] ?? ''));
     $respondentID = trim((string)($_POST['respondentID'] ?? ''));
-    $respondentType = trim((string)($_POST['respondentType'] ?? ''));
     $answers = (array)($_POST['answer'] ?? []);
     $form = loadFormInfo($conn, $formID);
 
@@ -1242,32 +1251,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_feedback'])) {
         $feedbackType = strtolower((string)$form['feedbackType']);
         $participantID = null;
         $staffID = null;
+        $transactionStarted = false;
 
         try {
             if ($feedbackType === 'participant') {
                 if (!filter_var($respondentID, FILTER_VALIDATE_EMAIL)) {
                     throw new RuntimeException('Please enter the email registered for this course.');
                 }
+
                 $participant = resolveParticipantByEmail($conn, $form, $respondentID);
                 if (!$participant) {
                     throw new RuntimeException('This email is not registered as a participant for this course.');
                 }
-                if (!hasApprovedAttendance($conn, $participant, (string)$form['sessionID'])) {
-                    throw new RuntimeException('Your attendance must be scanned and approved before you can answer this feedback.');
-                }
-                $participantID = (string)$participant['participantID'];
 
-                $dupSql = "
-                    SELECT COUNT(*) AS total
-                    FROM feedback_response fr
-                    JOIN feedback_question fq ON fr.questionID = fq.questionID
-                    JOIN feedback_category fc ON fq.categoryID = fc.categoryID
-                    WHERE fr.participantID = ?
-                      AND fc.formID = ?
-                      AND fr.responseType = 'participant'
-                ";
-                $dupStmt = mysqli_prepare($conn, $dupSql);
-                mysqli_stmt_bind_param($dupStmt, 'ss', $participantID, $formID);
+                // Feedback submission is verified by course registration/email.
+                // Attendance remains a separate certificate-eligibility rule and
+                // must not prevent a valid feedback response from being stored.
+                $participantID = (string)$participant['participantID'];
             } else {
                 $staffID = $respondentID;
                 $staffStmt = mysqli_prepare($conn, "SELECT staffID FROM staff_edu WHERE staffID = ? AND LOWER(COALESCE(status, 'active')) = 'active' LIMIT 1");
@@ -1276,24 +1276,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_feedback'])) {
                 if (!mysqli_fetch_assoc(mysqli_stmt_get_result($staffStmt))) {
                     throw new RuntimeException('Please select a valid coordinator name.');
                 }
-
-                $dupSql = "
-                    SELECT COUNT(*) AS total
-                    FROM feedback_response fr
-                    JOIN feedback_question fq ON fr.questionID = fq.questionID
-                    JOIN feedback_category fc ON fq.categoryID = fc.categoryID
-                    WHERE fr.staffID = ?
-                      AND fc.formID = ?
-                      AND LOWER(COALESCE(fr.responseType, 'participant')) IN ('staff_edu','pic','coordinator')
-                ";
-                $dupStmt = mysqli_prepare($conn, $dupSql);
-                mysqli_stmt_bind_param($dupStmt, 'ss', $staffID, $formID);
-            }
-
-            mysqli_stmt_execute($dupStmt);
-            $duplicate = mysqli_fetch_assoc(mysqli_stmt_get_result($dupStmt));
-            if ((int)($duplicate['total'] ?? 0) > 0) {
-                throw new RuntimeException('You have already submitted this feedback form.');
             }
 
             $questionGroups = loadQuestionGroups($conn, $formID);
@@ -1303,11 +1285,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_feedback'])) {
                     $questionRows[] = $question;
                 }
             }
+            if (empty($questionRows)) {
+                throw new RuntimeException('This feedback form has no questions to answer.');
+            }
 
             mysqli_begin_transaction($conn);
+            $transactionStarted = true;
+
+            // Lock the respondent record for this submission. This makes the
+            // one-submission-per-form check reliable even if the submit button
+            // is double-clicked or two requests arrive almost together.
+            if ($feedbackType === 'participant') {
+                $lockStmt = mysqli_prepare($conn, "SELECT participantID FROM course_participant WHERE participantID = ? FOR UPDATE");
+                mysqli_stmt_bind_param($lockStmt, 's', $participantID);
+                mysqli_stmt_execute($lockStmt);
+                if (!mysqli_fetch_assoc(mysqli_stmt_get_result($lockStmt))) {
+                    throw new RuntimeException('Participant record was not found.');
+                }
+
+                $dupStmt = mysqli_prepare($conn, "
+                    SELECT fr.responseID
+                    FROM feedback_response fr
+                    INNER JOIN feedback_question fq ON fr.questionID = fq.questionID
+                    INNER JOIN feedback_category fc ON fq.categoryID = fc.categoryID
+                    WHERE fr.participantID = ?
+                      AND fc.formID = ?
+                      AND fr.responseType = 'participant'
+                    LIMIT 1 FOR UPDATE
+                ");
+                mysqli_stmt_bind_param($dupStmt, 'ss', $participantID, $formID);
+            } else {
+                $lockStmt = mysqli_prepare($conn, "SELECT staffID FROM staff_edu WHERE staffID = ? FOR UPDATE");
+                mysqli_stmt_bind_param($lockStmt, 's', $staffID);
+                mysqli_stmt_execute($lockStmt);
+                if (!mysqli_fetch_assoc(mysqli_stmt_get_result($lockStmt))) {
+                    throw new RuntimeException('Coordinator record was not found.');
+                }
+
+                $dupStmt = mysqli_prepare($conn, "
+                    SELECT fr.responseID
+                    FROM feedback_response fr
+                    INNER JOIN feedback_question fq ON fr.questionID = fq.questionID
+                    INNER JOIN feedback_category fc ON fq.categoryID = fc.categoryID
+                    WHERE fr.staffID = ?
+                      AND fc.formID = ?
+                      AND LOWER(COALESCE(fr.responseType, 'participant')) IN ('staff_edu','pic','coordinator')
+                    LIMIT 1 FOR UPDATE
+                ");
+                mysqli_stmt_bind_param($dupStmt, 'ss', $staffID, $formID);
+            }
+
+            mysqli_stmt_execute($dupStmt);
+            if (mysqli_fetch_assoc(mysqli_stmt_get_result($dupStmt))) {
+                throw new RuntimeException('You have already submitted this feedback form.');
+            }
+
+            $insert = mysqli_prepare($conn, "
+                INSERT INTO feedback_response
+                    (responseID, rating, comment, responseDate, participantID, questionID, staffID, responseType)
+                VALUES (?, ?, ?, NOW(), ?, ?, ?, ?)
+            ");
+
             foreach ($questionRows as $question) {
                 $questionID = (string)$question['questionID'];
-                $questionType = (string)$question['questionType'];
+                $questionType = strtolower((string)$question['questionType']);
                 $isRequired = (int)$question['isRequired'];
                 $rawAnswer = trim((string)($answers[$questionID] ?? ''));
 
@@ -1317,6 +1358,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_feedback'])) {
 
                 $rating = null;
                 $comment = null;
+
                 if ($questionType === 'rating') {
                     $rating = $rawAnswer !== '' ? (int)$rawAnswer : null;
                     if ($rating !== null && ($rating < 1 || $rating > 5)) {
@@ -1335,32 +1377,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_feedback'])) {
 
                 $responseID = nextId($conn, 'feedback_response', 'responseID', 'FR');
                 $responseType = $feedbackType === 'participant' ? 'participant' : 'staff_edu';
-                $insert = mysqli_prepare($conn, "
-                    INSERT INTO feedback_response
-                    (responseID, rating, comment, responseDate, participantID, questionID, staffID, responseType)
-                    VALUES (?, ?, ?, NOW(), ?, ?, ?, ?)
-                ");
                 mysqli_stmt_bind_param($insert, 'sisssss', $responseID, $rating, $comment, $participantID, $questionID, $staffID, $responseType);
                 mysqli_stmt_execute($insert);
-            }
-
-            if ($feedbackType === 'participant' && $participantID !== null) {
-                $proc = mysqli_prepare($conn, "CALL sp_update_feedback_completed(?)");
-                mysqli_stmt_bind_param($proc, 's', $participantID);
-                mysqli_stmt_execute($proc);
-                mysqli_stmt_close($proc);
-                while (mysqli_more_results($conn) && mysqli_next_result($conn)) {
-                    $extraResult = mysqli_store_result($conn);
-                    if ($extraResult) mysqli_free_result($extraResult);
+                if (mysqli_stmt_affected_rows($insert) !== 1) {
+                    throw new RuntimeException('A feedback answer could not be saved. Please try again.');
                 }
             }
 
             mysqli_commit($conn);
-            updateTrainerAndCourseRating($conn, $formID);
+            $transactionStarted = false;
+
+            // Keep a short same-browser marker for a cleaner post-submit state.
+            // The database check above is authoritative and blocks repeat
+            // submissions even from a different browser/device.
+            if ($participantID !== null) {
+                $_SESSION['submitted_feedback_forms'][(string)$formID] = (string)$participantID;
+            }
+
+            if ($feedbackType === 'participant' && $participantID !== null) {
+                try {
+                    $proc = mysqli_prepare($conn, "CALL sp_update_feedback_completed(?)");
+                    mysqli_stmt_bind_param($proc, 's', $participantID);
+                    mysqli_stmt_execute($proc);
+                    mysqli_stmt_close($proc);
+                    while (mysqli_more_results($conn) && mysqli_next_result($conn)) {
+                        $extraResult = mysqli_store_result($conn);
+                        if ($extraResult) mysqli_free_result($extraResult);
+                    }
+                } catch (Throwable $completionError) {
+                    error_log('Feedback completion refresh failed: ' . $completionError->getMessage());
+                }
+            }
+
+            try {
+                updateTrainerAndCourseRating($conn, $formID);
+            } catch (Throwable $ratingError) {
+                error_log('Feedback rating refresh failed: ' . $ratingError->getMessage());
+            }
+
             setFeedbackFlash('success', 'Feedback submitted successfully.');
             redirectFeedback('feedback.php?answer=1&formID=' . urlencode($formID) . '&submitted=1');
         } catch (Throwable $e) {
-            if (mysqli_errno($conn)) {
+            if ($transactionStarted) {
                 try { mysqli_rollback($conn); } catch (Throwable $ignore) {}
             }
             $message = $e->getMessage();
@@ -1408,8 +1466,117 @@ while ($row = $sessionResult ? mysqli_fetch_assoc($sessionResult) : null) {
 }
 
 $forms = [];
-// Load form statistics once. The old version ran four correlated subqueries for every
-// feedback form, which became very expensive as response rows grew.
+// Summarize response data once per form. The summary is reused by the statistics
+// query and the paginated form-list query so we never load the full form history
+// merely to calculate totals.
+$responseSummarySql = "
+    SELECT
+        fc.formID,
+        COUNT(DISTINCT fr.participantID) AS participantResponses,
+        COUNT(DISTINCT fr.staffID) AS staffResponses,
+        COUNT(fr.responseID) AS totalAnswerRows,
+        ROUND(AVG(fr.rating), 2) AS averageRating,
+        COALESCE(SUM(fr.rating), 0) AS ratingSum,
+        COUNT(fr.rating) AS ratingCount
+    FROM feedback_category fc
+    LEFT JOIN feedback_question fq ON fq.categoryID = fc.categoryID
+    LEFT JOIN feedback_response fr ON fr.questionID = fq.questionID
+    GROUP BY fc.formID
+";
+
+$formStatsSql = "
+    SELECT
+        COUNT(ff.formID) AS totalForms,
+        SUM(CASE WHEN LOWER(COALESCE(ff.feedbackType, 'participant')) = 'participant' THEN 1 ELSE 0 END) AS totalParticipantForms,
+        SUM(CASE WHEN LOWER(COALESCE(ff.feedbackType, 'participant')) <> 'participant' THEN 1 ELSE 0 END) AS totalCoordinatorForms,
+        SUM(
+            CASE
+                WHEN LOWER(COALESCE(ff.feedbackType, 'participant')) = 'participant'
+                    THEN COALESCE(rs.participantResponses, 0)
+                ELSE COALESCE(rs.staffResponses, 0)
+            END
+        ) AS totalResponses,
+        COALESCE(SUM(rs.ratingSum), 0) AS ratingSum,
+        COALESCE(SUM(rs.ratingCount), 0) AS ratingCount
+    FROM feedback_form ff
+    LEFT JOIN (" . $responseSummarySql . ") rs ON rs.formID = ff.formID
+";
+
+$totalForms = 0;
+$totalParticipantForms = 0;
+$totalCoordinatorForms = 0;
+$totalResponses = 0;
+$totalRatingSum = 0.0;
+$totalRatingCount = 0;
+$statsResult = mysqli_query($conn, $formStatsSql);
+if ($statsResult && ($statsRow = mysqli_fetch_assoc($statsResult))) {
+    $totalForms = (int)($statsRow['totalForms'] ?? 0);
+    $totalParticipantForms = (int)($statsRow['totalParticipantForms'] ?? 0);
+    $totalCoordinatorForms = (int)($statsRow['totalCoordinatorForms'] ?? 0);
+    $totalResponses = (int)($statsRow['totalResponses'] ?? 0);
+    $totalRatingSum = (float)($statsRow['ratingSum'] ?? 0);
+    $totalRatingCount = (int)($statsRow['ratingCount'] ?? 0);
+}
+$overallRating = $totalRatingCount > 0 ? round($totalRatingSum / $totalRatingCount, 2) : 0;
+
+// Keep the form library lightweight even after years of data. Search/status
+// filtering and pagination are performed by MySQL so the browser only receives
+// the rows it is actually displaying.
+$formsPerPage = 10;
+$formListSearch = trim((string)($_GET['form_search'] ?? ''));
+$formListStatus = strtolower(trim((string)($_GET['form_status'] ?? 'all')));
+if (!in_array($formListStatus, ['all', 'has_responses', 'no_responses'], true)) {
+    $formListStatus = 'all';
+}
+
+$trainerSummarySql = "
+    SELECT
+        st.sessionID,
+        GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames
+    FROM session_trainer st
+    JOIN trainer t ON t.trainerID = st.trainerID
+    GROUP BY st.sessionID
+";
+
+$responseCountExpr = "(CASE
+    WHEN LOWER(COALESCE(ff.feedbackType, 'participant')) = 'participant'
+        THEN COALESCE(rs.participantResponses, 0)
+    ELSE COALESCE(rs.staffResponses, 0)
+END)";
+
+$formListWhereParts = [];
+if ($formListSearch !== '') {
+    $safeFormSearch = mysqli_real_escape_string($conn, $formListSearch);
+    $formListWhereParts[] = "(
+        ff.title LIKE '%{$safeFormSearch}%'
+        OR COALESCE(c.courseName, '') LIKE '%{$safeFormSearch}%'
+        OR COALESCE(cs.sessionName, '') LIKE '%{$safeFormSearch}%'
+        OR COALESCE(ts.trainerNames, '') LIKE '%{$safeFormSearch}%'
+    )";
+}
+if ($formListStatus === 'has_responses') {
+    $formListWhereParts[] = $responseCountExpr . ' > 0';
+} elseif ($formListStatus === 'no_responses') {
+    $formListWhereParts[] = $responseCountExpr . ' = 0';
+}
+$formListWhereSql = $formListWhereParts !== [] ? ' WHERE ' . implode(' AND ', $formListWhereParts) : '';
+
+$formListCountSql = "
+    SELECT COUNT(ff.formID) AS total
+    FROM feedback_form ff
+    LEFT JOIN course_session cs ON ff.sessionID = cs.sessionID
+    LEFT JOIN course c ON COALESCE(ff.courseID, cs.courseID) = c.courseID
+    LEFT JOIN (" . $trainerSummarySql . ") ts ON ts.sessionID = ff.sessionID
+    LEFT JOIN (" . $responseSummarySql . ") rs ON rs.formID = ff.formID
+    " . $formListWhereSql;
+$formListCountResult = mysqli_query($conn, $formListCountSql);
+$formListTotal = (int)(($formListCountResult ? mysqli_fetch_assoc($formListCountResult) : [])['total'] ?? 0);
+
+$formPage = max(1, (int)($_GET['form_page'] ?? 1));
+$formTotalPages = max(1, (int)ceil($formListTotal / $formsPerPage));
+$formPage = min($formPage, $formTotalPages);
+$formOffset = ($formPage - 1) * $formsPerPage;
+
 $formSql = "
     SELECT
         ff.formID,
@@ -1423,11 +1590,7 @@ $formSql = "
         cs.sessionDate,
         c.courseName,
         ts.trainerNames,
-        CASE
-            WHEN LOWER(COALESCE(ff.feedbackType, 'participant')) = 'participant'
-                THEN COALESCE(rs.participantResponses, 0)
-            ELSE COALESCE(rs.staffResponses, 0)
-        END AS totalResponses,
+        " . $responseCountExpr . " AS totalResponses,
         COALESCE(rs.totalAnswerRows, 0) AS totalAnswerRows,
         rs.averageRating,
         COALESCE(rs.ratingSum, 0) AS ratingSum,
@@ -1435,55 +1598,28 @@ $formSql = "
     FROM feedback_form ff
     LEFT JOIN course_session cs ON ff.sessionID = cs.sessionID
     LEFT JOIN course c ON COALESCE(ff.courseID, cs.courseID) = c.courseID
-    LEFT JOIN (
-        SELECT
-            st.sessionID,
-            GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames
-        FROM session_trainer st
-        JOIN trainer t ON t.trainerID = st.trainerID
-        GROUP BY st.sessionID
-    ) ts ON ts.sessionID = ff.sessionID
-    LEFT JOIN (
-        SELECT
-            fc.formID,
-            COUNT(DISTINCT fr.participantID) AS participantResponses,
-            COUNT(DISTINCT fr.staffID) AS staffResponses,
-            COUNT(fr.responseID) AS totalAnswerRows,
-            ROUND(AVG(fr.rating), 2) AS averageRating,
-            COALESCE(SUM(fr.rating), 0) AS ratingSum,
-            COUNT(fr.rating) AS ratingCount
-        FROM feedback_category fc
-        LEFT JOIN feedback_question fq ON fq.categoryID = fc.categoryID
-        LEFT JOIN feedback_response fr ON fr.questionID = fq.questionID
-        GROUP BY fc.formID
-    ) rs ON rs.formID = ff.formID
+    LEFT JOIN (" . $trainerSummarySql . ") ts ON ts.sessionID = ff.sessionID
+    LEFT JOIN (" . $responseSummarySql . ") rs ON rs.formID = ff.formID
+    " . $formListWhereSql . "
     ORDER BY ff.createdDate DESC, ff.formID DESC
-";
+    LIMIT " . (int)$formsPerPage . " OFFSET " . (int)$formOffset;
 $formResult = mysqli_query($conn, $formSql);
 while ($row = $formResult ? mysqli_fetch_assoc($formResult) : null) {
     $forms[] = $row;
 }
 
+$formShowingStart = $formListTotal > 0 ? $formOffset + 1 : 0;
+$formShowingEnd = min($formOffset + count($forms), $formListTotal);
+
 $participantForms = [];
 $coordinatorForms = [];
-$totalResponses = 0;
-$totalRatingSum = 0.0;
-$totalRatingCount = 0;
 foreach ($forms as $formRow) {
     if (strtolower((string)($formRow['feedbackType'] ?? 'participant')) === 'participant') {
         $participantForms[] = $formRow;
     } else {
         $coordinatorForms[] = $formRow;
     }
-    $totalResponses += (int)($formRow['totalResponses'] ?? 0);
-    $totalRatingSum += (float)($formRow['ratingSum'] ?? 0);
-    $totalRatingCount += (int)($formRow['ratingCount'] ?? 0);
 }
-
-$totalForms = count($forms);
-$totalParticipantForms = count($participantForms);
-$totalCoordinatorForms = count($coordinatorForms);
-$overallRating = $totalRatingCount > 0 ? round($totalRatingSum / $totalRatingCount, 2) : 0;
 
 // Preload editable form questions in one query instead of one query per card (N+1).
 $questionGroupsByForm = [];
@@ -1528,6 +1664,43 @@ if ($editableFormIDs !== []) {
     }
 }
 
+function feedbackPaginationItems(int $current, int $total): array {
+    if ($total <= 7) {
+        return range(1, $total);
+    }
+
+    $items = [1];
+    $start = max(2, $current - 1);
+    $end = min($total - 1, $current + 1);
+
+    if ($start > 2) {
+        $items[] = 'ellipsis';
+    }
+    for ($page = $start; $page <= $end; $page++) {
+        $items[] = $page;
+    }
+    if ($end < $total - 1) {
+        $items[] = 'ellipsis';
+    }
+    $items[] = $total;
+
+    return $items;
+}
+
+function feedbackFormPageUrl(int $page, string $search, string $status): string {
+    $params = [
+        'tab' => 'forms',
+        'form_page' => max(1, $page),
+    ];
+    if ($search !== '') {
+        $params['form_search'] = $search;
+    }
+    if ($status !== '' && $status !== 'all') {
+        $params['form_status'] = $status;
+    }
+    return 'feedback.php?' . http_build_query($params);
+}
+
 $answerForm = null;
 $answerCategories = [];
 $coordinatorAnswerOptions = [];
@@ -1554,16 +1727,6 @@ function renderBuilder(string $builderType, array $sessions): void {
         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
         <input type="hidden" name="feedbackType" value="<?= e($builderType === 'participant' ? 'participant' : 'staff_edu') ?>">
         <input type="hidden" name="create_feedback_form" value="1">
-
-        <div class="builder-action-strip">
-            <div>
-                <strong><?= $isParticipant ? 'Participant feedback builder' : 'Coordinator review builder' ?></strong>
-                <span><?= $isParticipant ? 'Trainer, course and overall sections are prepared.' : 'Create custom sections for the coordinator review.' ?></span>
-            </div>
-            <?php if (!$isParticipant): ?>
-                <button type="button" class="primary-btn compact-action always-visible-add-category" onclick="addCategory(this)">Add Category</button>
-            <?php endif; ?>
-        </div>
 
         <div class="builder-section-card">
             <div class="section-mini-label">Form Setup</div>
@@ -1597,9 +1760,7 @@ function renderBuilder(string $builderType, array $sessions): void {
                 <div class="section-mini-label">Question Builder</div>
                 <h3><?= $isParticipant ? 'Participant Feedback Categories' : 'Coordinator Review Questions' ?></h3>
             </div>
-            <?php if (!$isParticipant): ?>
-                <button type="button" class="secondary-btn" onclick="addCategory(this)">Add Category</button>
-            <?php endif; ?>
+            <button type="button" class="secondary-btn" onclick="addCategory(this)">Add Category</button>
         </div>
 
         <div class="category-container">
@@ -1627,7 +1788,6 @@ function renderBuilder(string $builderType, array $sessions): void {
                                     <div class="form-group"><label>Question Type</label><select name="question_type[0][]" onchange="toggleImageUpload(this)"><option value="rating" selected>Rating 1 - 5</option><option value="paragraph">Comment</option><option value="image">Image Upload Answer</option></select></div>
                                     <div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[0][<?= $i ?>]" value="0"><input type="checkbox" name="is_required[0][<?= $i ?>]" value="1" checked><span></span><b>Required</b></label></div>
                                 </div>
-                                <div class="form-group image-upload-group" hidden><label>Reference Image</label><input type="file" name="question_image[0][<?= $i ?>]" accept="image/*"></div>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -1657,7 +1817,6 @@ function renderBuilder(string $builderType, array $sessions): void {
                                     <div class="form-group"><label>Question Type</label><select name="question_type[1][]" onchange="toggleImageUpload(this)"><option value="rating" selected>Rating 1 - 5</option><option value="paragraph">Comment</option><option value="image">Image Upload Answer</option></select></div>
                                     <div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[1][<?= $i ?>]" value="0"><input type="checkbox" name="is_required[1][<?= $i ?>]" value="1" checked><span></span><b>Required</b></label></div>
                                 </div>
-                                <div class="form-group image-upload-group" hidden><label>Reference Image</label><input type="file" name="question_image[1][<?= $i ?>]" accept="image/*"></div>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -1681,7 +1840,6 @@ function renderBuilder(string $builderType, array $sessions): void {
                                 <div class="form-group"><label>Question Type</label><select name="question_type[2][]" onchange="toggleImageUpload(this)"><option value="rating">Rating 1 - 5</option><option value="paragraph" selected>Comment</option><option value="image">Image Upload Answer</option></select></div>
                                 <div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[2][0]" value="0"><input type="checkbox" name="is_required[2][0]" value="1" checked><span></span><b>Required</b></label></div>
                             </div>
-                            <div class="form-group image-upload-group" hidden><label>Reference Image</label><input type="file" name="question_image[2][0]" accept="image/*"></div>
                         </div>
                     </div>
                     <button type="button" class="add-question-btn" onclick="addQuestion(this)">Add Comment Question</button>
@@ -1704,7 +1862,7 @@ function renderBuilder(string $builderType, array $sessions): void {
                                 <div class="form-group"><label>Question Type</label><select name="question_type[0][]" onchange="toggleImageUpload(this)"><option value="rating">Rating 1 - 5</option><option value="paragraph">Comment</option><option value="image">Image Upload Answer</option></select></div>
                                 <div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[0][0]" value="0"><input type="checkbox" name="is_required[0][0]" value="1" checked><span></span><b>Required</b></label></div>
                             </div>
-                            <div class="form-group image-upload-group" hidden><label>Reference Image</label><input type="file" name="question_image[0][0]" accept="image/*"></div>
+                            
                         </div>
                     </div>
                     <button type="button" class="add-question-btn" onclick="addQuestion(this)">Add Question</button>
@@ -1790,13 +1948,20 @@ function renderCreatedFormCard(array $form, array $sessions, string $baseUrl, ar
                         <div class="form-group form-full-span"><label>Course Session</label><select name="sessionID" required><?php foreach ($sessions as $session): ?><option value="<?= e($session['sessionID']) ?>" <?= $session['sessionID'] === $form['sessionID'] ? 'selected' : '' ?>><?= e($session['courseName']) ?> · <?= e($session['sessionName'] ?: $session['sessionID']) ?> · <?= e(date('d M Y', strtotime($session['sessionDate']))) ?></option><?php endforeach; ?></select></div>
                     </div>
                 </div>
-                <div class="question-canvas-header"><div><div class="section-mini-label">Question Builder</div><h3>Categories & Questions</h3></div><?php if (!$isParticipantForm): ?><button type="button" class="secondary-btn" onclick="addCategory(this)">Add Category</button><?php endif; ?></div>
+                <div class="question-canvas-header"><div><div class="section-mini-label">Question Builder</div><h3><?= $isParticipantForm ? 'Participant Feedback Categories' : 'Coordinator Review Questions' ?></h3></div><button type="button" class="secondary-btn" onclick="addCategory(this)">Add Category</button></div>
                 <div class="category-container">
-                    <?php $catIndex = 0; foreach ($groups as $category): ?>
-                        <?php $role = $isParticipantForm ? ($catIndex === 0 ? 'trainer' : ($catIndex === 1 ? 'course' : 'overall')) : 'custom'; ?>
-                        <div class="category-builder-card <?= $isParticipantForm ? ($role === 'overall' ? 'overall-category' : 'locked-category') : '' ?>" data-category-role="<?= e($role) ?>">
-                            <div class="category-builder-top"><div><strong>Category <?= $catIndex + 1 ?></strong></div><?php if (!$isParticipantForm): ?><button type="button" class="remove-category-btn" onclick="removeCategory(this)">Remove</button><?php endif; ?></div>
-                            <div class="form-group"><label>Category Name</label><input type="text" name="category_name[]" value="<?= e($category['categoryName']) ?>" <?= $isParticipantForm ? 'readonly' : '' ?> required></div>
+                    <?php $catIndex = 0; $groupCount = count($groups); foreach ($groups as $category): ?>
+                        <?php
+                            if ($isParticipantForm) {
+                                $role = $catIndex === 0 ? 'trainer' : ($catIndex === 1 ? 'course' : ($catIndex === $groupCount - 1 ? 'overall' : 'custom'));
+                            } else {
+                                $role = 'custom';
+                            }
+                            $isFixedParticipantCategory = $isParticipantForm && in_array($role, ['trainer', 'course', 'overall'], true);
+                        ?>
+                        <div class="category-builder-card <?= $isFixedParticipantCategory ? ($role === 'overall' ? 'overall-category' : 'locked-category') : '' ?>" data-category-role="<?= e($role) ?>">
+                            <div class="category-builder-top"><div><strong>Category <?= $catIndex + 1 ?></strong></div><?php if (!$isFixedParticipantCategory): ?><button type="button" class="remove-category-btn" onclick="removeCategory(this)">Remove</button><?php endif; ?></div>
+                            <div class="form-group"><label>Category Name</label><input type="text" name="category_name[]" value="<?= e($category['categoryName']) ?>" <?= $isFixedParticipantCategory ? 'readonly' : '' ?> required></div>
                             <div class="questions-holder">
                                 <?php foreach ($category['questions'] as $qIndex => $question): ?>
                                 <div class="question-builder-card">
@@ -1806,7 +1971,6 @@ function renderCreatedFormCard(array $form, array $sessions, string $baseUrl, ar
                                         <div class="form-group"><label>Question Type</label><select name="question_type[<?= $catIndex ?>][]" onchange="toggleImageUpload(this)"><?php foreach (['rating'=>'Rating 1 - 5','paragraph'=>'Comment','image'=>'Image Upload Answer'] as $type=>$label): ?><option value="<?= e($type) ?>" <?= $question['questionType'] === $type ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
                                         <div class="form-group required-column"><label>Required</label><label class="required-toggle"><input type="hidden" name="is_required[<?= $catIndex ?>][<?= $qIndex ?>]" value="0"><input type="checkbox" name="is_required[<?= $catIndex ?>][<?= $qIndex ?>]" value="1" <?= (int)$question['isRequired'] === 1 ? 'checked' : '' ?>><span></span><b><?= (int)$question['isRequired'] === 1 ? 'Required' : 'Optional' ?></b></label></div>
                                     </div>
-                                    <div class="form-group image-upload-group" <?= $question['questionType'] === 'image' ? '' : 'hidden' ?>><label>Reference Image</label><?php if (!empty($question['questionImage'])): ?><small class="existing-question-image">Current: <?= e(basename((string)$question['questionImage'])) ?></small><?php endif; ?><input type="hidden" name="existing_question_image[<?= $catIndex ?>][<?= $qIndex ?>]" value="<?= e((string)($question['questionImage'] ?? '')) ?>"><input type="file" name="question_image[<?= $catIndex ?>][<?= $qIndex ?>]" accept="image/*"></div>
                                 </div>
                                 <?php endforeach; ?>
                             </div>
