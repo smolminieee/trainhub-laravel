@@ -24,7 +24,7 @@
                 <div class="auth-alert auth-alert-error" role="alert">{{ $error }}</div>
             @endif
 
-            <form method="POST" action="{{ route('login') }}" autocomplete="on">
+            <form method="POST" action="{{ route('login.process') }}" autocomplete="on">
                 @csrf
                 <div class="field-group">
                     <label for="email">Email</label>

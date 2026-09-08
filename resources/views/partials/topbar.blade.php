@@ -424,30 +424,71 @@ function addDays(s,n){const d=new Date(s+'T00:00:00');if(Number.isNaN(d.getTime(
 function datePair(f,a,b){const s=f.querySelector('[name="'+a+'"]'),e=f.querySelector('[name="'+b+'"]');if(!s||!e)return true;if(s.value)e.min=addDays(s.value,1);else e.removeAttribute('min');if(s.value&&e.value&&e.value<=s.value){setFieldError(e,'End date must be after start date.');return false}if(!basicMsg(e))setFieldError(e,'');return true}
 function timePairs(f){let ok=true;f.querySelectorAll('input[name^="endTime"]').forEach(e=>{const w=e.closest('.session-block,.session-edit-grid,.session-grid,.form-grid')||f,s=w.querySelector('input[name^="startTime"]');if(s&&s.value&&e.value&&e.value<=s.value){setFieldError(e,'End time must be after start time.');ok=false}else if(!basicMsg(e))setFieldError(e,'')});return ok}
 function validateFormInline(f){let ok=true;f.querySelectorAll('input,select,textarea').forEach(c=>{if(c.type==='hidden'||c.disabled)return;const m=basicMsg(c);if(m){setFieldError(c,m);ok=false}else if(!c.classList.contains('is-invalid'))setFieldError(c,'')});[['observerStartDate','observerEndDate'],['externalStartDate','externalEndDate'],['observerAssignedDate','observerAssignmentEndDate'],['externalAssignedDate','externalAssignmentEndDate']].forEach(x=>{if(!datePair(f,x[0],x[1]))ok=false});if(!timePairs(f))ok=false;return ok}
-function refreshGlobalFormEnhancements(){document.querySelectorAll('input[type="number"]').forEach(i=>{if(i.min==='')i.min='0'});refreshRequiredMarkers()}document.addEventListener('DOMContentLoaded',()=>{convertLegacyAlerts();setupGlobalConfirmForms();refreshGlobalFormEnhancements();new MutationObserver(()=>refreshGlobalFormEnhancements()).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['required']})});document.addEventListener('input',e=>{const c=e.target.closest('input,select,textarea');if(!c)return;setFieldError(c,basicMsg(c));if(c.form){timePairs(c.form);[['observerStartDate','observerEndDate'],['externalStartDate','externalEndDate'],['observerAssignedDate','observerAssignmentEndDate'],['externalAssignedDate','externalAssignmentEndDate']].forEach(x=>datePair(c.form,x[0],x[1]))}});document.addEventListener('change',e=>{const c=e.target.closest('input,select,textarea');if(c){setFieldError(c,basicMsg(c));if(c.form)validateFormInline(c.form)}});document.addEventListener('submit',e=>{const f=e.target;if(!(f instanceof HTMLFormElement))return;if(!validateFormInline(f)){e.preventDefault();e.stopImmediatePropagation();const c=f.querySelector('.is-invalid');if(c){c.focus({preventScroll:true});c.scrollIntoView({behavior:'smooth',block:'center'})}openGlobalNotice('Please correct the highlighted field(s) before continuing.','error')}},true);
+function enhanceGlobalFormNode(root=document){
+    const scope=(root instanceof Element || root instanceof Document)?root:document;
+    if(scope.matches?.('input[type="number"]') && scope.min==='') scope.min='0';
+    scope.querySelectorAll?.('input[type="number"]').forEach(i=>{if(i.min==='')i.min='0'});
+    if(scope.matches?.('input[required],select[required],textarea[required]')){
+        const l=findFieldLabel(scope);if(l)l.dataset.requiredMarker='1';
+    }
+    refreshRequiredMarkers(scope);
+}
+function refreshGlobalFormEnhancements(){enhanceGlobalFormNode(document)}
+document.addEventListener('DOMContentLoaded',()=>{
+    convertLegacyAlerts();
+    setupGlobalConfirmForms();
+    refreshGlobalFormEnhancements();
+
+    // Only enhance newly inserted form fragments. The old implementation
+    // rescanned the whole document for every DOM mutation, which could freeze
+    // pages that render calendars, tables, or large dynamic sections.
+    const formObserver=new MutationObserver(mutations=>{
+        for(const mutation of mutations){
+            mutation.addedNodes.forEach(node=>{
+                if(node.nodeType===1) enhanceGlobalFormNode(node);
+            });
+        }
+    });
+    formObserver.observe(document.body,{subtree:true,childList:true});
+});
+document.addEventListener('input',e=>{const c=e.target.closest('input,select,textarea');if(!c)return;setFieldError(c,basicMsg(c));if(c.form){timePairs(c.form);[['observerStartDate','observerEndDate'],['externalStartDate','externalEndDate'],['observerAssignedDate','observerAssignmentEndDate'],['externalAssignedDate','externalAssignmentEndDate']].forEach(x=>datePair(c.form,x[0],x[1]))}});
+document.addEventListener('change',e=>{const c=e.target.closest('input,select,textarea');if(c){setFieldError(c,basicMsg(c));if(c.form)validateFormInline(c.form)}});
+document.addEventListener('submit',e=>{const f=e.target;if(!(f instanceof HTMLFormElement))return;if(!validateFormInline(f)){e.preventDefault();e.stopImmediatePropagation();const c=f.querySelector('.is-invalid');if(c){c.focus({preventScroll:true});c.scrollIntoView({behavior:'smooth',block:'center'})}openGlobalNotice('Please correct the highlighted field(s) before continuing.','error')}},true);
 
 
 /* Keep the header behind/blurred whenever any application popup is open. */
 (function(){
+    const modalSelectors='.modal,.global-ui-overlay,.flash-popup-backdrop,.delete-confirm-backdrop,.confirm-popup-backdrop,.attendance-popup-backdrop,.confirm-modal,.response-detail-modal,.certificate-list-modal,.assignment-modal,.response-modal';
+    let syncQueued=false;
+
     function visible(el){
         if(!el || el.hidden) return false;
         const cs=getComputedStyle(el);
         return cs.display!=='none' && cs.visibility!=='hidden' && parseFloat(cs.opacity||'1')>0;
     }
     function sync(){
-        const selectors=['.modal','.global-ui-overlay','.flash-popup-backdrop','.delete-confirm-backdrop','.confirm-popup-backdrop','.attendance-popup-backdrop','.confirm-modal','.response-detail-modal','.certificate-list-modal','.assignment-modal','.response-modal'];
-        const open=selectors.some(sel=>Array.from(document.querySelectorAll(sel)).some(visible));
+        syncQueued=false;
+        const open=Array.from(document.querySelectorAll(modalSelectors)).some(visible);
         document.body.classList.toggle('has-modal-open',open);
         if(open) document.body.classList.add('ui-modal-open');
         else if(!document.body.classList.contains('modal-open')) document.body.classList.remove('ui-modal-open');
     }
+    function scheduleSync(){
+        if(syncQueued) return;
+        syncQueued=true;
+        requestAnimationFrame(sync);
+    }
     document.addEventListener('DOMContentLoaded',function(){
         sync();
-        const observer=new MutationObserver(sync);
-        observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden'],childList:true});
-        document.addEventListener('click',()=>setTimeout(sync,0),true);
-        document.addEventListener('submit',()=>setTimeout(sync,0),true);
-        window.trainhubSyncModalState=sync;
+
+        // Attribute changes can happen rapidly while a page renders. Queue one
+        // modal-state check per animation frame rather than rescanning the DOM
+        // for every individual mutation.
+        const observer=new MutationObserver(scheduleSync);
+        observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+        document.addEventListener('click',scheduleSync,true);
+        document.addEventListener('submit',scheduleSync,true);
+        window.trainhubSyncModalState=scheduleSync;
     });
 })();
 </script>

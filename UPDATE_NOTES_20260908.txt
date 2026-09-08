@@ -1,0 +1,34 @@
+TrainHub Al Amin - Canonical Database Update (2026-09-08)
+
+Database
+- Configured DB_DATABASE=alamin_main_database.
+- Legacy mysqli modules now use Laravel's .env database configuration.
+- utf8mb4 / utf8mb4_unicode_ci configured consistently.
+- Connection timeout added to avoid long hangs when MySQL is unavailable.
+
+TrainHub scope
+- Normal TrainHub login uses staff_edu + login_session.
+- TrainHub pages continue using only the tables needed by TrainHub/shared integrations.
+- The presence of other group members' tables in the canonical database does not make TrainHub query them unnecessarily.
+
+Performance changes
+- Dashboard: reduced repeated credit-hour stored-function calls; indexed audit month range; reduced duplicate history queries; scoped calendar/training queries.
+- Training: stopped syncing/loading all participants, sessions and attendance on every list load; details are scoped to the selected course.
+- Teacher: detail-heavy queries are loaded only when needed.
+- Trainer: avoids unnecessary broad rating/document work.
+- Feedback: aggregated form statistics; fixed isolated legacy connection scope; reduced repeated question queries.
+- Settings: credit calculations limited to the logged-in staff member.
+
+Validation
+- 93 PHP files under app/config/database/routes/resources/views passed php -l syntax checks.
+- Laravel config reports database: alamin_main_database.
+- /login.php route resolves to AuthController@login.
+
+After extracting
+1. Start Apache/MySQL (or MySQL + php artisan serve).
+2. Import the canonical database and your INSERT data.
+3. Check .env database username/password if your local MySQL differs.
+4. Run:
+   php artisan config:clear
+   php artisan cache:clear
+5. Ensure PHP extensions used by Laravel are enabled in XAMPP, especially mbstring and mysqli/pdo_mysql.

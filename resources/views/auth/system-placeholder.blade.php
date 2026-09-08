@@ -23,7 +23,7 @@
         <h1>{{ $system['name'] }}</h1>
         <p>Role: <strong>{{ $role['label'] }}</strong></p>
         <div class="pending-directory-box">
-            The system directory is intentionally blank for now. Add its path later in <code>config/unified_access.php</code> or the matching <code>SYSTEM_*_URL</code> value in <code>.env</code>.
+            The selected system base URL is not configured yet. Add the matching <code>SYSTEM_*_URL</code> value in <code>.env</code>, then try again.
         </div>
         <div class="placeholder-actions">
             <a class="secondary-auth-btn" href="{{ route('auth.systems') }}">Choose another system</a>

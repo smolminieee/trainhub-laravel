@@ -1,0 +1,32 @@
+TrainHub Unified Login - Final Role/System Mapping (2026-09-08)
+
+Role -> systems
+Teacher -> Izz
+New Teacher -> Asyiqin, Izz
+Outsider -> Izz
+Guru Besar -> Asyiqin, Izz
+Staff EDU -> Nureen, Aidid, Izz
+HR -> Asyiqin, Athirah
+Trainer -> Aidid
+Observer -> Asyiqin
+External Observer -> Asyiqin
+
+System names shown
+1. Nureen - Training Course Administration System (TrainHub Al Amin)
+2. Aidid - Training Management System (Trainer Perspective)
+3. Asyiqin - Teacher Employment Management System
+4. Athirah - Human Resource Management
+5. Izz - Educator training Management system (EduTrain system)
+
+Selection behavior
+- Login once with email/password.
+- Choose one active role belonging to the email.
+- Choose one system allowed for that role.
+- Clicking the selected role/system again unselects it.
+- Clear selection is available on both screens.
+- Change role is available from the system screen.
+
+Observer rule
+Observer and External Observer are Teacher accounts. These roles only appear when an active observer/external_observer row exists for that teacherID.
+
+This build also retains the V6 database compatibility and browser/page performance fixes from the previous performance-fixed release.

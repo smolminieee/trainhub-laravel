@@ -6,6 +6,7 @@ class Trainer extends TrainHubModel
 {
     protected $table = 'trainer';
     protected $primaryKey = 'trainerID';
+    public $timestamps = true;
 
     public function sessionAssignments()
     {

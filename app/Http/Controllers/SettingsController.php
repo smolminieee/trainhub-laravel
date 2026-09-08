@@ -45,33 +45,63 @@ class SettingsController extends Controller
 
         $staffArray = (array) $staff;
 
-        // Credit hours are annual. Training still follows approved course attendance.
-        // Tarbiah is read-only in TrainHub: if a Staff EDU row exists in
-        // staff_tarbiah_attendance, that Tarbiah is treated as joined and its
-        // duration contributes at x1.0 (maximum 10 hours per year).
+        // Credit hours are annual. Calculate only this staff member's rows.
+        // Avoid v_staff_credit_hour here because that view calls a stored function
+        // for every attendance row and can become slow in the combined database.
         try {
-            $creditRow = DB::table('v_staff_credit_hour')
-                ->where('staffID', $staffID)
-                ->first(['creditYear', 'trainingCreditHour']);
+            $creditYear = (int) date('Y');
+            $yearStart = sprintf('%04d-01-01', $creditYear);
+            $nextYearStart = sprintf('%04d-01-01', $creditYear + 1);
+            $normalizedIc = preg_replace('/[^0-9A-Za-z]/', '', (string) ($staffArray['ICNumber'] ?? '')) ?? '';
 
-            $trainingCredit = min(30.0, (float) ($creditRow->trainingCreditHour ?? 0));
+            $trainingRow = DB::selectOne("
+                SELECT COALESCE(ROUND(SUM(
+                    (CASE WHEN cs.endTime > cs.startTime
+                        THEN TIME_TO_SEC(TIMEDIFF(cs.endTime, cs.startTime)) / 3600
+                        ELSE COALESCE(ast.hours_ladap, 0)
+                    END) *
+                    (CASE
+                        WHEN trainer_course.courseID IS NOT NULL THEN 1.5
+                        WHEN LOWER(COALESCE(c.organiserName, '')) LIKE '%al amin edu oasis%' THEN 1.0
+                        ELSE 0.5
+                    END)
+                ), 2), 0) AS trainingCreditHour
+                FROM attendance_staff ast
+                INNER JOIN course_session cs ON cs.sessionID = ast.session_id
+                INNER JOIN course c ON c.courseID = cs.courseID
+                LEFT JOIN (
+                    SELECT DISTINCT cs2.courseID
+                    FROM trainer tr
+                    INNER JOIN session_trainer st2 ON st2.trainerID = tr.trainerID
+                    INNER JOIN course_session cs2 ON cs2.sessionID = st2.sessionID
+                    WHERE REPLACE(REPLACE(TRIM(COALESCE(tr.trainerIC, '')), '-', ''), ' ', '') = ?
+                ) trainer_course ON trainer_course.courseID = c.courseID
+                WHERE ast.staffID = ?
+                  AND ast.attendance_status = 'approved'
+                  AND cs.sessionDate >= ?
+                  AND cs.sessionDate < ?
+            ", [$normalizedIc, $staffID, $yearStart, $nextYearStart]);
+
+            $trainingCredit = min(30.0, (float) ($trainingRow->trainingCreditHour ?? 0));
 
             $tarbiahRaw = (float) (DB::table('staff_tarbiah_attendance as sta')
                 ->join('tarbiah as t', 't.tarbiah_id', '=', 'sta.tarbiah_id')
                 ->where('sta.staffID', $staffID)
-                ->whereYear('t.session_date', (int) date('Y'))
+                ->where('sta.attendance_status', 'approved')
+                ->where('t.session_date', '>=', $yearStart)
+                ->where('t.session_date', '<', $nextYearStart)
                 ->selectRaw('COALESCE(SUM(CASE WHEN t.end_time > t.start_time THEN TIME_TO_SEC(TIMEDIFF(t.end_time, t.start_time)) / 3600 ELSE 0 END), 0) AS hours')
                 ->value('hours') ?? 0);
 
             $tarbiahCredit = min(10.0, round($tarbiahRaw, 2));
 
             $staffArray['credit_hour'] = min(40.0, $trainingCredit + $tarbiahCredit);
-            $staffArray['credit_year'] = (int) ($creditRow->creditYear ?? date('Y'));
+            $staffArray['credit_year'] = $creditYear;
             $staffArray['tarbiah_credit_hour'] = $tarbiahCredit;
             $staffArray['training_credit_hour'] = $trainingCredit;
         } catch (Throwable $e) {
             // Keep the existing staff_edu.credit_hour as a compatibility fallback
-            // if the annual credit sources are temporarily unavailable.
+            // if annual credit sources are temporarily unavailable.
             report($e);
         }
 

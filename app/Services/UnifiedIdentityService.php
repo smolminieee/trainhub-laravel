@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
 class UnifiedIdentityService
@@ -18,12 +19,13 @@ class UnifiedIdentityService
         $inactiveMatched = false;
 
         foreach ($sources as $sourceKey => $source) {
-            $row = $this->findByEmail((array) $source, $email);
+            $source = (array) $source;
+            $row = $this->findByEmail($source, $email);
             if (!$row) {
                 continue;
             }
 
-            if (!$this->sourceIsActive((array) $source, $row)) {
+            if (!$this->sourceIsActive($source, $row)) {
                 $inactiveMatched = true;
                 continue;
             }
@@ -38,14 +40,18 @@ class UnifiedIdentityService
             }
 
             $stored = (string) ($row->{$passwordColumn} ?? '');
-            if ($this->passwordMatches($password, $stored)) {
-                $matched = [
-                    'source_key' => (string) $sourceKey,
-                    'source' => (array) $source,
-                    'row' => $row,
-                ];
-                break;
+            if (!$this->passwordMatches($password, $stored)) {
+                continue;
             }
+
+            $this->upgradeLegacyPasswordIfNeeded($source, $row, $passwordColumn, $stored, $password);
+
+            $matched = [
+                'source_key' => (string) $sourceKey,
+                'source' => $source,
+                'row' => $row,
+            ];
+            break;
         }
 
         if (!$matched) {
@@ -61,7 +67,7 @@ class UnifiedIdentityService
         if ($roles === []) {
             return [
                 'ok' => false,
-                'error' => 'Your account was verified, but no system role is currently assigned to this email.',
+                'error' => 'Your account was verified, but no active system role is currently assigned to this email.',
             ];
         }
 
@@ -105,8 +111,6 @@ class UnifiedIdentityService
         }
 
         if ($identity = $this->identityFromSource('guru_new', $email)) {
-            $roles['new_teacher'] = $identity;
-        } elseif ($identity = $this->identityFromSource('applicant', $email)) {
             $roles['new_teacher'] = $identity;
         }
 
@@ -160,32 +164,15 @@ class UnifiedIdentityService
             if ($userID !== null) {
                 $row = DB::table('outsider')->where('user_id', $userID)->first();
                 if ($row) {
-                    $idColumn = $this->firstExistingColumn('outsider', ['outsider_id', 'outsiderID']);
-                    $nameColumn = $this->firstExistingColumn('outsider', ['name', 'full_name']);
                     return [
                         'source' => 'outsider',
                         'table' => 'outsider',
-                        'id' => $idColumn ? (string) ($row->{$idColumn} ?? '') : '',
-                        'name' => $nameColumn ? (string) ($row->{$nameColumn} ?? '') : (string) ($userRow->name ?? $email),
+                        'id' => (string) ($row->outsider_id ?? ''),
+                        'name' => trim((string) ($row->name ?? '')) ?: (string) ($userRow->name ?? $email),
                         'email' => $email,
+                        'user_id' => (string) $userID,
                     ];
                 }
-            }
-        }
-
-        $outsiderEmail = $this->firstExistingColumn('outsider', ['email']);
-        if ($outsiderEmail) {
-            $row = DB::table('outsider')->whereRaw('LOWER(`'.$outsiderEmail.'`) = ?', [$email])->first();
-            if ($row) {
-                $idColumn = $this->firstExistingColumn('outsider', ['outsider_id', 'outsiderID']);
-                $nameColumn = $this->firstExistingColumn('outsider', ['name', 'full_name']);
-                return [
-                    'source' => 'outsider',
-                    'table' => 'outsider',
-                    'id' => $idColumn ? (string) ($row->{$idColumn} ?? '') : '',
-                    'name' => $nameColumn ? (string) ($row->{$nameColumn} ?? '') : $email,
-                    'email' => $email,
-                ];
             }
         }
 
@@ -200,7 +187,7 @@ class UnifiedIdentityService
 
         $query = DB::table($table)->where('teacherID', $teacherID);
         if ($this->hasColumn($table, 'status')) {
-            $query->whereRaw('LOWER(`status`) IN (?, ?)', ['active', 'aktif']);
+            $query->whereRaw('LOWER(TRIM(`status`)) IN (?, ?)', ['active', 'aktif']);
         }
 
         $row = $query->first();
@@ -208,15 +195,12 @@ class UnifiedIdentityService
             return null;
         }
 
-        $idCandidates = $table === 'observer'
-            ? ['observerID', 'observer_id']
-            : ['externalObserverID', 'external_observer_id'];
-        $idColumn = $this->firstExistingColumn($table, $idCandidates);
+        $idColumn = $table === 'observer' ? 'observerID' : 'externalObserverID';
 
         return [
             'source' => $table,
             'table' => $table,
-            'id' => $idColumn ? (string) ($row->{$idColumn} ?? '') : '',
+            'id' => (string) ($row->{$idColumn} ?? ''),
             'name' => '',
             'email' => '',
             'teacherID' => $teacherID,
@@ -252,13 +236,31 @@ class UnifiedIdentityService
         }
 
         return DB::table($table)
-            ->whereRaw('LOWER(`'.$emailColumn.'`) = ?', [$email])
+            ->whereRaw('LOWER(TRIM(`'.$emailColumn.'`)) = ?', [$email])
             ->first();
     }
 
     private function sourceIsActive(array $source, object $row): bool
     {
         $table = (string) ($source['table'] ?? '');
+
+        // The canonical teacher table has no status column. Tya's current
+        // standalone login treats a terminated assignment as inactive, so the
+        // unified gateway mirrors that rule when an assignment exists.
+        if ($table === 'teacher' && Schema::hasTable('assign')) {
+            $teacherID = (string) ($row->teacherID ?? '');
+            if ($teacherID !== '') {
+                $latest = DB::table('assign')
+                    ->where('teacherID', $teacherID)
+                    ->orderByDesc('assignDate')
+                    ->first();
+
+                if ($latest && in_array(strtolower(trim((string) ($latest->status ?? ''))), ['berhenti', 'inactive', 'tidak aktif'], true)) {
+                    return false;
+                }
+            }
+        }
+
         $statusColumn = $this->firstExistingColumn($table, (array) ($source['status'] ?? []));
         if (!$statusColumn) {
             return true;
@@ -288,8 +290,35 @@ class UnifiedIdentityService
             return password_verify($plain, $stored);
         }
 
-        // Temporary legacy compatibility while the five systems are unified.
+        // Legacy compatibility for old group records. Successful plaintext
+        // matches are upgraded to a Laravel-supported hash immediately.
         return hash_equals($stored, $plain);
+    }
+
+    private function upgradeLegacyPasswordIfNeeded(array $source, object $row, string $passwordColumn, string $stored, string $plain): void
+    {
+        $info = password_get_info($stored);
+        if (!empty($info['algo']) && !password_needs_rehash($stored, PASSWORD_DEFAULT)) {
+            return;
+        }
+
+        $table = (string) ($source['table'] ?? '');
+        $idColumn = $this->firstExistingColumn($table, (array) ($source['id'] ?? []));
+        if (!$idColumn) {
+            return;
+        }
+
+        $id = $row->{$idColumn} ?? null;
+        if ($id === null || $id === '') {
+            return;
+        }
+
+        try {
+            DB::table($table)->where($idColumn, $id)->update([$passwordColumn => Hash::make($plain)]);
+        } catch (\Throwable) {
+            // Authentication already succeeded; a hash-upgrade failure should
+            // not block the user from entering the gateway.
+        }
     }
 
     private function firstExistingColumn(string $table, array $candidates): ?string

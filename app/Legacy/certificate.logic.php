@@ -14,12 +14,10 @@ require_once __DIR__ . "/config/db.php";
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-if (!$conn->select_db("fyp2.0")) {
+if (!$conn->select_db(TRAINHUB_DATABASE_NAME)) {
     http_response_code(500);
-    exit("Unable to select the fyp2.0 database.");
+    exit("Unable to select the configured TrainHub database.");
 }
-
-$conn->set_charset("utf8mb4");
 date_default_timezone_set("Asia/Kuala_Lumpur");
 
 $staffID = $_SESSION["staffID"] ?? $_SESSION["staff_id"] ?? "";

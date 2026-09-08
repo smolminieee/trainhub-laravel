@@ -3,28 +3,18 @@ require_once __DIR__ . "/config/session.php";
 require_once __DIR__ . "/config/db.php";
 
 /* =========================
-   FYP 2.0 DATABASE
+   DATABASE CONNECTION
 ========================= */
-const DATABASE_NAME = "fyp2.0";
-
 if (!isset($conn) || !($conn instanceof mysqli)) {
     http_response_code(500);
     exit("Database connection is not available.");
 }
 
-/*
- * The database name contains a period. mysqli_select_db() accepts the exact
- * database name without SQL backticks and overrides any older database chosen
- * inside config/db.php.
- */
-if (!mysqli_select_db($conn, DATABASE_NAME)) {
-    error_log("Unable to select database " . DATABASE_NAME . ": " . mysqli_error($conn));
+/* config/db.php already connects to DB_DATABASE from Laravel's .env. */
+if (!mysqli_select_db($conn, TRAINHUB_DATABASE_NAME)) {
+    error_log("Unable to select database " . TRAINHUB_DATABASE_NAME . ": " . mysqli_error($conn));
     http_response_code(500);
     exit("Unable to select the application database.");
-}
-
-if (!mysqli_set_charset($conn, "utf8mb4")) {
-    error_log("Unable to set utf8mb4 connection charset: " . mysqli_error($conn));
 }
 
 /* =========================
@@ -189,7 +179,6 @@ function renderAuditContent($conn, $auditType, $auditMonth, $auditPage) {
         $auditMonth = date("Y-m");
     }
 
-    $auditMonthSafe = mysqli_real_escape_string($conn, $auditMonth);
     $auditLimit = 6;
 
     if ($auditPage < 1) {
@@ -198,7 +187,13 @@ function renderAuditContent($conn, $auditType, $auditMonth, $auditPage) {
 
     $auditOffset = ($auditPage - 1) * $auditLimit;
 
-    $whereAudit = "WHERE DATE_FORMAT(a.actionDate, '%Y-%m') = '$auditMonthSafe'";
+    /* Use a range instead of DATE_FORMAT(actionDate). This keeps the
+       idx_audit_log_action_date index usable when the log becomes large. */
+    $monthStart = $auditMonth . '-01 00:00:00';
+    $monthEnd = (new DateTimeImmutable($auditMonth . '-01'))->modify('+1 month')->format('Y-m-d H:i:s');
+    $monthStartSafe = mysqli_real_escape_string($conn, $monthStart);
+    $monthEndSafe = mysqli_real_escape_string($conn, $monthEnd);
+    $whereAudit = "WHERE a.actionDate >= '$monthStartSafe' AND a.actionDate < '$monthEndSafe'";
 
     if ($auditType !== "ALL") {
         $typeSafe = mysqli_real_escape_string($conn, $auditType);
@@ -219,7 +214,7 @@ function renderAuditContent($conn, $auditType, $auditMonth, $auditPage) {
     }
 
     /*
-     * Latest fyp2.0 audit_log structure:
+     * Canonical audit_log structure:
      * logID, staffID, userName, actionType, tableName, newValue, actionDate.
      * oldValue is no longer used.
      */
@@ -436,6 +431,7 @@ $creditYearResult = mysqli_query($conn, "
         FROM staff_tarbiah_attendance ta
         JOIN tarbiah t ON t.tarbiah_id = ta.tarbiah_id
         WHERE ta.staffID = '$safeStaffID'
+          AND ta.attendance_status = 'approved'
           AND t.session_date IS NOT NULL
     ) years
     WHERE creditYear IS NOT NULL
@@ -454,9 +450,47 @@ if (!in_array($selectedHistoryYear, $creditYears, true)) {
     rsort($creditYears);
 }
 
-function fetchStaffTrainingCreditRows($conn, $safeStaffID, $year) {
+/* Read the staff IC once. The previous dashboard called fn_calculate_credit_hour()
+   once per attendance row; that function performs its own SELECTs, which becomes
+   very expensive as attendance grows. */
+$staffNormalizedIC = '';
+$staffProfileResult = mysqli_query($conn, "
+    SELECT REPLACE(REPLACE(TRIM(COALESCE(ICNumber, '')), '-', ''), ' ', '') AS normalizedIC
+    FROM staff_edu
+    WHERE staffID = '$safeStaffID'
+    LIMIT 1
+");
+if ($staffProfileResult && ($staffProfile = mysqli_fetch_assoc($staffProfileResult))) {
+    $staffNormalizedIC = trim((string)($staffProfile['normalizedIC'] ?? ''));
+}
+$safeStaffIC = mysqli_real_escape_string($conn, $staffNormalizedIC);
+
+function fetchStaffTrainingCreditRows($conn, $safeStaffID, $safeStaffIC, $year) {
     $rows = [];
     $year = (int)$year;
+    $yearStart = mysqli_real_escape_string($conn, sprintf('%04d-01-01', $year));
+    $nextYearStart = mysqli_real_escape_string($conn, sprintf('%04d-01-01', $year + 1));
+
+    $trainerCourseJoin = '';
+    $trainerMatchExpression = '0';
+    if ($safeStaffIC !== '') {
+        $trainerCourseJoin = "
+            LEFT JOIN (
+                SELECT DISTINCT cs2.courseID
+                FROM trainer tr
+                JOIN session_trainer st2 ON st2.trainerID = tr.trainerID
+                JOIN course_session cs2 ON cs2.sessionID = st2.sessionID
+                WHERE REPLACE(REPLACE(TRIM(COALESCE(tr.trainerIC, '')), '-', ''), ' ', '') = '$safeStaffIC'
+            ) trainer_course ON trainer_course.courseID = c.courseID
+        ";
+        $trainerMatchExpression = "MAX(CASE WHEN trainer_course.courseID IS NOT NULL THEN 1 ELSE 0 END)";
+    }
+
+    $baseHoursExpression = "CASE WHEN cs.endTime > cs.startTime
+        THEN TIME_TO_SEC(TIMEDIFF(cs.endTime, cs.startTime)) / 3600
+        ELSE COALESCE(ast.hours_ladap, 0)
+    END";
+
     $result = mysqli_query($conn, "
         SELECT
             'training' AS sourceType,
@@ -464,31 +498,19 @@ function fetchStaffTrainingCreditRows($conn, $safeStaffID, $year) {
             c.courseName AS activityName,
             MIN(cs.sessionDate) AS firstDate,
             MAX(cs.sessionDate) AS lastDate,
-            COUNT(DISTINCT ast.session_id) AS sessionsAttended,
-            ROUND(SUM(
-                CASE WHEN cs.endTime > cs.startTime
-                    THEN TIME_TO_SEC(TIMEDIFF(cs.endTime, cs.startTime)) / 3600
-                    ELSE COALESCE(ast.hours_ladap, 0)
-                END
-            ), 2) AS baseHours,
-            ROUND(SUM(fn_calculate_credit_hour(
-                ast.staffID,
-                cs.courseID,
-                CASE WHEN cs.endTime > cs.startTime
-                    THEN TIME_TO_SEC(TIMEDIFF(cs.endTime, cs.startTime)) / 3600
-                    ELSE COALESCE(ast.hours_ladap, 0)
-                END
-            )), 2) AS creditHours,
+            COUNT(*) AS sessionsAttended,
+            ROUND(SUM($baseHoursExpression), 2) AS baseHours,
+            ROUND(
+                SUM($baseHoursExpression) *
+                CASE
+                    WHEN $trainerMatchExpression = 1 THEN 1.5
+                    WHEN LOWER(COALESCE(c.organiserName, '')) LIKE '%al amin edu oasis%' THEN 1.0
+                    ELSE 0.5
+                END,
+                2
+            ) AS creditHours,
             CASE
-                WHEN EXISTS (
-                    SELECT 1
-                    FROM trainer tr
-                    JOIN session_trainer st2 ON st2.trainerID = tr.trainerID
-                    JOIN course_session cs2 ON cs2.sessionID = st2.sessionID
-                    JOIN staff_edu se2 ON se2.staffID = ast.staffID
-                    WHERE cs2.courseID = c.courseID
-                      AND REPLACE(REPLACE(TRIM(tr.trainerIC), '-', ''), ' ', '') = REPLACE(REPLACE(TRIM(se2.ICNumber), '-', ''), ' ', '')
-                ) THEN 'Trainer ×1.5'
+                WHEN $trainerMatchExpression = 1 THEN 'Trainer ×1.5'
                 WHEN LOWER(COALESCE(c.organiserName, '')) LIKE '%al amin edu oasis%' THEN 'Al Amin ×1.0'
                 ELSE 'External ×0.5'
             END AS creditRule,
@@ -499,9 +521,11 @@ function fetchStaffTrainingCreditRows($conn, $safeStaffID, $year) {
         FROM attendance_staff ast
         JOIN course_session cs ON cs.sessionID = ast.session_id
         JOIN course c ON c.courseID = cs.courseID
+        $trainerCourseJoin
         WHERE ast.staffID = '$safeStaffID'
           AND ast.attendance_status = 'approved'
-          AND YEAR(cs.sessionDate) = $year
+          AND cs.sessionDate >= '$yearStart'
+          AND cs.sessionDate < '$nextYearStart'
         GROUP BY c.courseID, c.courseName, c.organiserName, ast.staffID
         ORDER BY lastDate DESC, activityName ASC
     ");
@@ -514,6 +538,8 @@ function fetchStaffTrainingCreditRows($conn, $safeStaffID, $year) {
 function fetchStaffTarbiahCreditRows($conn, $safeStaffID, $year) {
     $rows = [];
     $year = (int)$year;
+    $yearStart = mysqli_real_escape_string($conn, sprintf('%04d-01-01', $year));
+    $nextYearStart = mysqli_real_escape_string($conn, sprintf('%04d-01-01', $year + 1));
     $result = mysqli_query($conn, "
         SELECT
             'tarbiah' AS sourceType,
@@ -537,7 +563,9 @@ function fetchStaffTarbiahCreditRows($conn, $safeStaffID, $year) {
         JOIN tarbiah t ON t.tarbiah_id = ta.tarbiah_id
         LEFT JOIN school s ON s.schoolID = t.schoolID
         WHERE ta.staffID = '$safeStaffID'
-          AND YEAR(t.session_date) = $year
+          AND ta.attendance_status = 'approved'
+          AND t.session_date >= '$yearStart'
+          AND t.session_date < '$nextYearStart'
         ORDER BY t.session_date DESC, t.title ASC
     ");
     if ($result) {
@@ -546,7 +574,7 @@ function fetchStaffTarbiahCreditRows($conn, $safeStaffID, $year) {
     return $rows;
 }
 
-$currentTrainingCreditRows = fetchStaffTrainingCreditRows($conn, $safeStaffID, $currentCreditYear);
+$currentTrainingCreditRows = fetchStaffTrainingCreditRows($conn, $safeStaffID, $safeStaffIC, $currentCreditYear);
 $currentTarbiahCreditRows = fetchStaffTarbiahCreditRows($conn, $safeStaffID, $currentCreditYear);
 
 $rawTrainingCredit = array_sum(array_map(fn($row) => (float)($row['creditHours'] ?? 0), $currentTrainingCreditRows));
@@ -563,11 +591,17 @@ usort($allCurrentCreditRows, fn($a, $b) => strcmp((string)($b['lastDate'] ?? '')
 $latestTrainingDate = !empty($allCurrentCreditRows[0]['lastDate']) ? date('d M Y', strtotime((string)$allCurrentCreditRows[0]['lastDate'])) : 'N/A';
 $staffCreditCourses = $allCurrentCreditRows;
 
-$staffCreditHistoryCourses = array_merge(
-    fetchStaffTrainingCreditRows($conn, $safeStaffID, $selectedHistoryYear),
-    fetchStaffTarbiahCreditRows($conn, $safeStaffID, $selectedHistoryYear)
-);
-usort($staffCreditHistoryCourses, fn($a, $b) => strcmp((string)($b['lastDate'] ?? ''), (string)($a['lastDate'] ?? '')));
+/* The current year is the default history year, so reuse rows already loaded
+   instead of running the same two database queries a second time. */
+if ($selectedHistoryYear === $currentCreditYear) {
+    $staffCreditHistoryCourses = $allCurrentCreditRows;
+} else {
+    $staffCreditHistoryCourses = array_merge(
+        fetchStaffTrainingCreditRows($conn, $safeStaffID, $safeStaffIC, $selectedHistoryYear),
+        fetchStaffTarbiahCreditRows($conn, $safeStaffID, $selectedHistoryYear)
+    );
+    usort($staffCreditHistoryCourses, fn($a, $b) => strcmp((string)($b['lastDate'] ?? ''), (string)($a['lastDate'] ?? '')));
+}
 
 $historyTrainingRaw = 0.0;
 $historyTarbiahRaw = 0.0;
@@ -584,21 +618,25 @@ $historyCreditTotal = min($targetCredit, $historyTrainingCredit + $historyTarbia
 ========================= */
 $calendarEvents = [];
 
-$calendarQuery = mysqli_query($conn, "
-    SELECT 
-        v.courseID,
-        v.courseName,
-        v.courseCategory,
-        v.courseType,
-        v.courseStatus,
-        v.sessionID,
-        v.sessionDate,
-        v.sessionName,
-        v.startTime,
-        v.endTime,
-        v.location,
-        v.trainerNames,
+/* The calendar selector only exposes five years either side of the current
+   year, so do not serialize every historical/future session into the page. */
+$calendarStart = mysqli_real_escape_string($conn, sprintf('%04d-01-01', max(2000, $currentCreditYear - 5)));
+$calendarEnd = mysqli_real_escape_string($conn, sprintf('%04d-01-01', $currentCreditYear + 6));
 
+$calendarQuery = mysqli_query($conn, "
+    SELECT
+        c.courseID,
+        c.courseName,
+        c.courseCategory,
+        c.courseType,
+        c.status AS courseStatus,
+        cs.sessionID,
+        cs.sessionDate,
+        cs.sessionName,
+        cs.startTime,
+        cs.endTime,
+        cs.location,
+        GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames,
         c.description,
         c.courseRating,
         c.capacity,
@@ -607,9 +645,18 @@ $calendarQuery = mysqli_query($conn, "
         c.mode,
         c.onlineLink,
         c.whatsappGroup
-    FROM v_course_session_overview v
-    JOIN course c ON c.courseID = v.courseID
-    ORDER BY v.sessionDate ASC, v.startTime ASC
+    FROM course_session cs
+    JOIN course c ON c.courseID = cs.courseID
+    LEFT JOIN session_trainer st ON st.sessionID = cs.sessionID
+    LEFT JOIN trainer t ON t.trainerID = st.trainerID
+    WHERE cs.sessionDate >= '$calendarStart'
+      AND cs.sessionDate < '$calendarEnd'
+    GROUP BY
+        c.courseID, c.courseName, c.courseCategory, c.courseType, c.status,
+        cs.sessionID, cs.sessionDate, cs.sessionName, cs.startTime, cs.endTime, cs.location,
+        c.description, c.courseRating, c.capacity, c.price, c.organiserName,
+        c.mode, c.onlineLink, c.whatsappGroup
+    ORDER BY cs.sessionDate ASC, cs.startTime ASC
 ");
 
 if ($calendarQuery) {
@@ -654,7 +701,7 @@ $events_json = json_encode(
    TRAINING LIST
 ========================= */
 $trainingList = mysqli_query($conn, "
-    SELECT 
+    SELECT
         c.courseID,
         c.courseName,
         c.description,
@@ -662,20 +709,25 @@ $trainingList = mysqli_query($conn, "
         c.status,
         c.mode,
         c.courseRating,
-        MIN(v.sessionDate) AS startDate,
-        MAX(v.sessionDate) AS endDate,
-        GROUP_CONCAT(DISTINCT v.trainerNames SEPARATOR ', ') AS trainerNames
+        s.startDate,
+        s.endDate,
+        COALESCE(tr.trainerNames, '') AS trainerNames
     FROM course c
-    LEFT JOIN v_course_session_overview v ON c.courseID = v.courseID
-    GROUP BY 
-        c.courseID,
-        c.courseName,
-        c.description,
-        c.courseCategory,
-        c.status,
-        c.mode,
-        c.courseRating
-    ORDER BY COALESCE(MIN(v.sessionDate), '9999-12-31') ASC
+    LEFT JOIN (
+        SELECT courseID, MIN(sessionDate) AS startDate, MAX(sessionDate) AS endDate
+        FROM course_session
+        GROUP BY courseID
+    ) s ON s.courseID = c.courseID
+    LEFT JOIN (
+        SELECT
+            cs.courseID,
+            GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames
+        FROM course_session cs
+        LEFT JOIN session_trainer st ON st.sessionID = cs.sessionID
+        LEFT JOIN trainer t ON t.trainerID = st.trainerID
+        GROUP BY cs.courseID
+    ) tr ON tr.courseID = c.courseID
+    ORDER BY COALESCE(s.startDate, '9999-12-31') ASC, c.courseName ASC
     LIMIT 20
 ");
 
@@ -683,20 +735,26 @@ $trainingList = mysqli_query($conn, "
    UPCOMING SESSIONS
 ========================= */
 $upcomingTrainings = mysqli_query($conn, "
-    SELECT 
-        courseName,
-        courseCategory,
-        courseType,
-        courseStatus,
-        sessionID,
-        sessionDate,
-        sessionName,
-        startTime,
-        endTime,
-        location,
-        trainerNames
-    FROM v_course_session_overview
-    WHERE sessionDate >= CURDATE()
-    ORDER BY sessionDate ASC, startTime ASC
+    SELECT
+        c.courseName,
+        c.courseCategory,
+        c.courseType,
+        c.status AS courseStatus,
+        cs.sessionID,
+        cs.sessionDate,
+        cs.sessionName,
+        cs.startTime,
+        cs.endTime,
+        cs.location,
+        GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames
+    FROM course_session cs
+    JOIN course c ON c.courseID = cs.courseID
+    LEFT JOIN session_trainer st ON st.sessionID = cs.sessionID
+    LEFT JOIN trainer t ON t.trainerID = st.trainerID
+    WHERE cs.sessionDate >= CURDATE()
+    GROUP BY
+        c.courseName, c.courseCategory, c.courseType, c.status,
+        cs.sessionID, cs.sessionDate, cs.sessionName, cs.startTime, cs.endTime, cs.location
+    ORDER BY cs.sessionDate ASC, cs.startTime ASC
     LIMIT 4
 ");

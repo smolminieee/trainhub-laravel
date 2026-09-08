@@ -3,105 +3,122 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | Unified login handoff
+    |--------------------------------------------------------------------------
+    | Non-TrainHub systems consume a short-lived, one-time token from the
+    | canonical shared `cache` table. This avoids trying to share Laravel file
+    | sessions between independent applications.
+    */
+    'handoff_ttl' => (int) env('UNIFIED_HANDOFF_TTL', 90),
+    'handoff_path' => env('UNIFIED_HANDOFF_PATH', '/unified-login/handoff'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Connected systems
     |--------------------------------------------------------------------------
-    | Keep the URLs blank until the five systems are placed into their final
-    | directories. Relative paths (e.g. /izz/public) or full URLs may be used.
+    | The displayed names intentionally follow the FYP system names supplied
+    | by the project group. Aidid has two target keys because Staff EDU and
+    | Trainer land in different local dashboards inside the same application.
     */
     'systems' => [
+        'nureen' => [
+            'owner' => 'Nureen',
+            'name' => 'Training Course Administration System (TrainHub Al Amin)',
+            'description' => 'Training course administration workspace.',
+            'url' => env('SYSTEM_NUREEN_URL', ''),
+        ],
+        'aidid_staff' => [
+            'owner' => 'Aidid',
+            'name' => 'Training Management System (Trainer Perspective)',
+            'description' => 'Staff EDU administration workspace in the Training Management System.',
+            'url' => env('SYSTEM_AIDID_STAFF_URL') ?: env('SYSTEM_AIDID_URL', ''),
+        ],
+        'aidid_trainer' => [
+            'owner' => 'Aidid',
+            'name' => 'Training Management System (Trainer Perspective)',
+            'description' => 'Trainer workspace in the Training Management System.',
+            'url' => env('SYSTEM_AIDID_TRAINER_URL') ?: env('SYSTEM_AIDID_URL', ''),
+        ],
+        'syiqin' => [
+            'owner' => 'Asyiqin',
+            'name' => 'Teacher Employment Management System',
+            'description' => 'Teacher employment and observation workspace.',
+            'url' => env('SYSTEM_SYIQIN_URL', ''),
+        ],
+        'tya' => [
+            'owner' => 'Athirah',
+            'name' => 'Human Resource Management',
+            'description' => 'Human resource management workspace.',
+            'url' => env('SYSTEM_TYA_URL', ''),
+        ],
         'izz' => [
-            'name' => 'Educator Training Management System',
             'owner' => 'Izz',
+            'name' => 'Educator training Management system (EduTrain system)',
             'description' => 'Educator training management workspace.',
             'url' => env('SYSTEM_IZZ_URL', ''),
         ],
-        'nureen' => [
-            'name' => 'Training Course Management System',
-            'owner' => 'Nureen',
-            'description' => 'Training course management workspace.',
-            'url' => env('SYSTEM_NUREEN_URL', ''),
-        ],
-        'tya' => [
-            'name' => 'Human Resources Management',
-            'owner' => 'Tya',
-            'description' => 'Human resources management workspace.',
-            'url' => env('SYSTEM_TYA_URL', ''),
-        ],
-        'aidid_staff' => [
-            'name' => 'Training Management System',
-            'owner' => 'Aidid',
-            'description' => 'Training management staff workspace.',
-            'url' => env('SYSTEM_AIDID_STAFF_URL', ''),
-        ],
-        'aidid_trainer' => [
-            'name' => 'Training Management System',
-            'owner' => 'Aidid',
-            'description' => 'Training management trainer workspace.',
-            'url' => env('SYSTEM_AIDID_TRAINER_URL', ''),
-        ],
-        'syiqin' => [
-            'name' => 'Teacher Employment Management System',
-            'owner' => 'Syiqin',
-            'description' => 'Teacher employment management workspace.',
-            'url' => env('SYSTEM_SYIQIN_URL', ''),
-        ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Role-to-system access
+    |--------------------------------------------------------------------------
+    | Role labels are intentionally short. A user only sees roles actually
+    | discovered for their email. After choosing a role, only the systems
+    | listed for that role are displayed and accepted server-side.
+    |
+    | Ownership supplied by the group:
+    | - Nureen: Staff EDU
+    | - Asyiqin: Guru Besar, New Teacher, Observer, External Observer, HR
+    | - Izz: Teacher, New Teacher, Outsider, Guru Besar, Staff EDU
+    | - Athirah: HR
+    | - Aidid: Staff EDU, Trainer
+    */
     'roles' => [
         'teacher' => [
             'label' => 'Teacher',
-            'description' => 'Access training and learning functions as a teacher.',
             'systems' => ['izz'],
         ],
         'new_teacher' => [
             'label' => 'New Teacher',
-            'description' => 'Access new-teacher learning and observation functions.',
-            'systems' => ['izz', 'syiqin'],
+            'systems' => ['syiqin', 'izz'],
         ],
         'outsider' => [
-            'label' => 'Public',
-            'description' => 'Access public training registration and participation.',
+            'label' => 'Outsider',
             'systems' => ['izz'],
         ],
         'principal' => [
             'label' => 'Guru Besar',
-            'description' => 'Access school leadership and observation functions.',
-            'systems' => ['izz', 'syiqin'],
+            'systems' => ['syiqin', 'izz'],
         ],
         'staff_edu' => [
-            'label' => 'Staff',
-            'description' => 'Access staff systems.',
-            'systems' => ['izz', 'nureen', 'aidid_staff'],
+            'label' => 'Staff EDU',
+            'systems' => ['nureen', 'aidid_staff', 'izz'],
         ],
         'hr_administrator' => [
             'label' => 'HR',
-            'description' => 'Access Human Resource administration functions.',
-            'systems' => ['tya'],
+            'systems' => ['syiqin', 'tya'],
         ],
         'trainer' => [
             'label' => 'Trainer',
-            'description' => 'Access the trainer workspace and assigned training.',
             'systems' => ['aidid_trainer'],
         ],
         'observer' => [
             'label' => 'Observer',
-            'description' => 'Access assigned new-teacher observation functions.',
             'systems' => ['syiqin'],
         ],
         'external_observer' => [
             'label' => 'External Observer',
-            'description' => 'Access external observation functions.',
             'systems' => ['syiqin'],
         ],
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Login credential sources
+    | Canonical credential sources
     |--------------------------------------------------------------------------
-    | The resolver checks only tables/columns that actually exist, making this
-    | gateway tolerant while the five databases are still being reconciled.
-    | Same-email records are treated as the same person for role discovery.
+    | Same-email records are treated as one person for multi-role discovery
+    | after one valid credential check.
     */
     'credential_sources' => [
         'users' => [
@@ -115,8 +132,8 @@ return [
             'table' => 'staff_edu',
             'email' => ['email'],
             'password' => ['password'],
-            'id' => ['staffID', 'staffid'],
-            'name' => ['staffName', 'staffname'],
+            'id' => ['staffID'],
+            'name' => ['staffName'],
             'status' => ['status'],
             'active_values' => ['active', 'aktif'],
         ],
@@ -125,9 +142,7 @@ return [
             'email' => ['email'],
             'password' => ['password'],
             'id' => ['teacherID'],
-            'name' => ['teacherName', 'teacher_name'],
-            'status' => ['status'],
-            'active_values' => ['active', 'aktif'],
+            'name' => ['teacherName'],
         ],
         'guru_new' => [
             'table' => 'guru_new',
@@ -136,21 +151,14 @@ return [
             'id' => ['gn_id'],
             'name' => ['gn_name'],
             'status' => ['current_status'],
-            'active_values' => ['active', 'complete'],
-        ],
-        'applicant' => [
-            'table' => 'applicant',
-            'email' => ['email'],
-            'password' => ['password'],
-            'id' => ['applicant_id'],
-            'name' => ['full_name'],
+            'active_values' => ['active'],
         ],
         'principal' => [
             'table' => 'principal',
             'email' => ['email'],
             'password' => ['password'],
             'id' => ['principalID'],
-            'name' => ['principalName', 'principal_name'],
+            'name' => ['principalName'],
             'status' => ['status'],
             'active_values' => ['active', 'aktif'],
         ],
@@ -158,15 +166,15 @@ return [
             'table' => 'hr_administrator',
             'email' => ['email'],
             'password' => ['password'],
-            'id' => ['hrid', 'hrID'],
-            'name' => ['username', 'hrname'],
+            'id' => ['hrid'],
+            'name' => ['username'],
         ],
         'trainer' => [
             'table' => 'trainer',
-            'email' => ['trainerEmail', 'trainer_email', 'email'],
-            'password' => ['trainerPassword', 'password'],
-            'id' => ['trainerID', 'trainer_id'],
-            'name' => ['trainerName', 'trainer_name'],
+            'email' => ['trainerEmail'],
+            'password' => ['trainerPassword'],
+            'id' => ['trainerID'],
+            'name' => ['trainerName'],
             'status' => ['status'],
             'active_values' => ['active', 'aktif'],
         ],

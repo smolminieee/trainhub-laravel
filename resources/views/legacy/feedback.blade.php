@@ -223,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <div class="empty-state">No participant feedback form created yet.</div>
                                 <?php else: ?>
                                     <?php foreach ($participantForms as $form): ?>
-                                        <?php renderCreatedFormCard($form, $sessions, $baseUrl); ?>
+                                        <?php renderCreatedFormCard($form, $sessions, $baseUrl, $questionGroupsByForm); ?>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>
@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <div class="empty-state">No coordinator review form created yet.</div>
                                 <?php else: ?>
                                     <?php foreach ($coordinatorForms as $form): ?>
-                                        <?php renderCreatedFormCard($form, $sessions, $baseUrl); ?>
+                                        <?php renderCreatedFormCard($form, $sessions, $baseUrl, $questionGroupsByForm); ?>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>

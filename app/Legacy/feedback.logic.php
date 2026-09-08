@@ -8,10 +8,9 @@ require_once __DIR__ . '/config/db.php';
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 try {
-    if (!$conn->select_db('fyp2.0')) {
-        throw new RuntimeException('Unable to select the fyp2.0 database.');
+    if (!$conn->select_db(TRAINHUB_DATABASE_NAME)) {
+        throw new RuntimeException('Unable to select the configured TrainHub database.');
     }
-    $conn->set_charset('utf8mb4');
 } catch (Throwable $e) {
     http_response_code(500);
     exit('Database connection error.');
@@ -90,13 +89,16 @@ function getBaseUrl(): string {
 }
 
 function tableExists(mysqli $conn, string $tableName): bool {
+    static $cache = [];
+    $key = strtolower($tableName);
+    if (array_key_exists($key, $cache)) return $cache[$key];
     $safe = mysqli_real_escape_string($conn, $tableName);
     $result = mysqli_query($conn, "SHOW TABLES LIKE '$safe'");
-    return $result && mysqli_num_rows($result) > 0;
+    return $cache[$key] = (bool)($result && mysqli_num_rows($result) > 0);
 }
 
 /**
- * Older fyp2.0 builds used chk_feedback_question_1 to require questionImage
+ * Older TrainHub database builds used chk_feedback_question_1 to require questionImage
  * whenever questionType = image. TrainHub now uses the image type for a
  * responder-upload answer, so a prompt/reference image is optional.
  *
@@ -1406,6 +1408,8 @@ while ($row = $sessionResult ? mysqli_fetch_assoc($sessionResult) : null) {
 }
 
 $forms = [];
+// Load form statistics once. The old version ran four correlated subqueries for every
+// feedback form, which became very expensive as response rows grew.
 $formSql = "
     SELECT
         ff.formID,
@@ -1418,40 +1422,41 @@ $formSql = "
         cs.sessionName,
         cs.sessionDate,
         c.courseName,
-        (
-            SELECT GROUP_CONCAT(DISTINCT t2.trainerName ORDER BY t2.trainerName SEPARATOR ', ')
-            FROM session_trainer st2
-            INNER JOIN trainer t2 ON t2.trainerID = st2.trainerID
-            WHERE st2.sessionID = ff.sessionID
-        ) AS trainerNames,
-        (
-            SELECT COUNT(DISTINCT CASE
-                WHEN ff.feedbackType = 'participant' THEN fr2.participantID
-                ELSE fr2.staffID
-            END)
-            FROM feedback_category fc2
-            INNER JOIN feedback_question fq2 ON fq2.categoryID = fc2.categoryID
-            INNER JOIN feedback_response fr2 ON fr2.questionID = fq2.questionID
-            WHERE fc2.formID = ff.formID
-        ) AS totalResponses,
-        (
-            SELECT COUNT(fr3.responseID)
-            FROM feedback_category fc3
-            INNER JOIN feedback_question fq3 ON fq3.categoryID = fc3.categoryID
-            INNER JOIN feedback_response fr3 ON fr3.questionID = fq3.questionID
-            WHERE fc3.formID = ff.formID
-        ) AS totalAnswerRows,
-        (
-            SELECT ROUND(AVG(fr4.rating), 2)
-            FROM feedback_category fc4
-            INNER JOIN feedback_question fq4 ON fq4.categoryID = fc4.categoryID
-            INNER JOIN feedback_response fr4 ON fr4.questionID = fq4.questionID
-            WHERE fc4.formID = ff.formID
-              AND fr4.rating IS NOT NULL
-        ) AS averageRating
+        ts.trainerNames,
+        CASE
+            WHEN LOWER(COALESCE(ff.feedbackType, 'participant')) = 'participant'
+                THEN COALESCE(rs.participantResponses, 0)
+            ELSE COALESCE(rs.staffResponses, 0)
+        END AS totalResponses,
+        COALESCE(rs.totalAnswerRows, 0) AS totalAnswerRows,
+        rs.averageRating,
+        COALESCE(rs.ratingSum, 0) AS ratingSum,
+        COALESCE(rs.ratingCount, 0) AS ratingCount
     FROM feedback_form ff
     LEFT JOIN course_session cs ON ff.sessionID = cs.sessionID
     LEFT JOIN course c ON COALESCE(ff.courseID, cs.courseID) = c.courseID
+    LEFT JOIN (
+        SELECT
+            st.sessionID,
+            GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames
+        FROM session_trainer st
+        JOIN trainer t ON t.trainerID = st.trainerID
+        GROUP BY st.sessionID
+    ) ts ON ts.sessionID = ff.sessionID
+    LEFT JOIN (
+        SELECT
+            fc.formID,
+            COUNT(DISTINCT fr.participantID) AS participantResponses,
+            COUNT(DISTINCT fr.staffID) AS staffResponses,
+            COUNT(fr.responseID) AS totalAnswerRows,
+            ROUND(AVG(fr.rating), 2) AS averageRating,
+            COALESCE(SUM(fr.rating), 0) AS ratingSum,
+            COUNT(fr.rating) AS ratingCount
+        FROM feedback_category fc
+        LEFT JOIN feedback_question fq ON fq.categoryID = fc.categoryID
+        LEFT JOIN feedback_response fr ON fr.questionID = fq.questionID
+        GROUP BY fc.formID
+    ) rs ON rs.formID = ff.formID
     ORDER BY ff.createdDate DESC, ff.formID DESC
 ";
 $formResult = mysqli_query($conn, $formSql);
@@ -1461,29 +1466,67 @@ while ($row = $formResult ? mysqli_fetch_assoc($formResult) : null) {
 
 $participantForms = [];
 $coordinatorForms = [];
+$totalResponses = 0;
+$totalRatingSum = 0.0;
+$totalRatingCount = 0;
 foreach ($forms as $formRow) {
     if (strtolower((string)($formRow['feedbackType'] ?? 'participant')) === 'participant') {
         $participantForms[] = $formRow;
     } else {
         $coordinatorForms[] = $formRow;
     }
+    $totalResponses += (int)($formRow['totalResponses'] ?? 0);
+    $totalRatingSum += (float)($formRow['ratingSum'] ?? 0);
+    $totalRatingCount += (int)($formRow['ratingCount'] ?? 0);
 }
 
-$totalForms = 0;
-$totalParticipantForms = 0;
-$totalCoordinatorForms = 0;
-$totalResponses = 0;
-$overallRating = 0;
-$countResult = mysqli_query($conn, "SELECT COUNT(*) AS total FROM feedback_form");
-if ($countResult) $totalForms = (int)(mysqli_fetch_assoc($countResult)['total'] ?? 0);
-$countResult = mysqli_query($conn, "SELECT COUNT(*) AS total FROM feedback_form WHERE feedbackType = 'participant'");
-if ($countResult) $totalParticipantForms = (int)(mysqli_fetch_assoc($countResult)['total'] ?? 0);
-$countResult = mysqli_query($conn, "SELECT COUNT(*) AS total FROM feedback_form WHERE LOWER(COALESCE(feedbackType, 'participant')) <> 'participant'");
-if ($countResult) $totalCoordinatorForms = (int)(mysqli_fetch_assoc($countResult)['total'] ?? 0);
-$countResult = mysqli_query($conn, "SELECT COUNT(DISTINCT CONCAT(COALESCE(fr.participantID, fr.staffID), ':', fc.formID)) AS total FROM feedback_response fr JOIN feedback_question fq ON fr.questionID = fq.questionID JOIN feedback_category fc ON fq.categoryID = fc.categoryID");
-if ($countResult) $totalResponses = (int)(mysqli_fetch_assoc($countResult)['total'] ?? 0);
-$countResult = mysqli_query($conn, "SELECT ROUND(AVG(rating), 2) AS avgRating FROM feedback_response WHERE rating IS NOT NULL");
-if ($countResult) $overallRating = mysqli_fetch_assoc($countResult)['avgRating'] ?? 0;
+$totalForms = count($forms);
+$totalParticipantForms = count($participantForms);
+$totalCoordinatorForms = count($coordinatorForms);
+$overallRating = $totalRatingCount > 0 ? round($totalRatingSum / $totalRatingCount, 2) : 0;
+
+// Preload editable form questions in one query instead of one query per card (N+1).
+$questionGroupsByForm = [];
+$editableFormIDs = [];
+foreach ($forms as $formRow) {
+    if ((int)($formRow['totalAnswerRows'] ?? 0) === 0) {
+        $editableFormIDs[] = (string)$formRow['formID'];
+    }
+}
+if ($editableFormIDs !== []) {
+    $escapedFormIDs = array_map(static fn(string $id): string => "'" . mysqli_real_escape_string($conn, $id) . "'", $editableFormIDs);
+    $questionSql = "
+        SELECT
+            fc.formID,
+            fc.categoryID,
+            fc.categoryName,
+            fc.categoryOrder,
+            fq.questionID,
+            fq.questionText,
+            fq.questionType,
+            fq.questionImage,
+            fq.isRequired,
+            fq.questionOrder
+        FROM feedback_category fc
+        JOIN feedback_question fq ON fq.categoryID = fc.categoryID
+        WHERE fc.formID IN (" . implode(',', $escapedFormIDs) . ")
+        ORDER BY fc.formID, fc.categoryOrder ASC, fq.questionOrder ASC
+    ";
+    $questionResult = mysqli_query($conn, $questionSql);
+    while ($questionRow = $questionResult ? mysqli_fetch_assoc($questionResult) : null) {
+        $formID = (string)$questionRow['formID'];
+        $categoryID = (string)$questionRow['categoryID'];
+        if (!isset($questionGroupsByForm[$formID][$categoryID])) {
+            $questionGroupsByForm[$formID][$categoryID] = [
+                'categoryID' => $questionRow['categoryID'],
+                'categoryName' => $questionRow['categoryName'],
+                'categoryOrder' => $questionRow['categoryOrder'],
+                'questions' => [],
+            ];
+        }
+        $questionGroupsByForm[$formID][$categoryID]['questions'][] = $questionRow;
+    }
+}
 
 $answerForm = null;
 $answerCategories = [];
@@ -1680,8 +1723,7 @@ function renderBuilder(string $builderType, array $sessions): void {
 }
 
 
-function renderCreatedFormCard(array $form, array $sessions, string $baseUrl): void {
-    global $conn;
+function renderCreatedFormCard(array $form, array $sessions, string $baseUrl, array $questionGroupsByForm = []): void {
 
     $answerLink = $baseUrl . '/feedback.php?answer=1&formID=' . urlencode((string)$form['formID']);
     $isParticipantForm = strtolower((string)($form['feedbackType'] ?? 'participant')) === 'participant';
@@ -1695,7 +1737,7 @@ function renderCreatedFormCard(array $form, array $sessions, string $baseUrl): v
         feedbackTypeLabel((string)($form['feedbackType'] ?? 'participant'))
     ]);
     $modalID = 'editFormModal' . preg_replace('/[^A-Za-z0-9_-]/', '', (string)$form['formID']);
-    $groups = $hasResponses ? [] : loadQuestionGroups($conn, (string)$form['formID']);
+    $groups = $hasResponses ? [] : ($questionGroupsByForm[(string)$form['formID']] ?? []);
     ?>
     <article class="created-form-card filterable-created-form" data-search="<?= e($searchText) ?>" data-type="<?= e($isParticipantForm ? 'participant' : 'staff_edu') ?>" data-responses="<?= e((int)($form['totalResponses'] ?? 0)) ?>">
         <div class="created-form-main">

@@ -5,9 +5,8 @@ require_once __DIR__ . "/config/db.php";
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
-mysqli_set_charset($conn, 'utf8mb4');
-if (!mysqli_select_db($conn, 'fyp2.0')) {
-    throw new RuntimeException('Unable to select database fyp2.0.');
+if (!mysqli_select_db($conn, TRAINHUB_DATABASE_NAME)) {
+    throw new RuntimeException('Unable to select the configured TrainHub database.');
 }
 
 $staffID = $_SESSION["staffID"] ?? $_SESSION["staff_id"] ?? "";
@@ -245,7 +244,7 @@ function insertTrainingSession($conn, $courseID, array $sessionData) {
         $sessionID = nextID($conn, "course_session", "sessionID", "CS");
     }
 
-    $stmt = $conn->prepare("INSERT INTO course_session (sessionID, sessionDate, sessionName, startTime, endTime, location, courseID) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO course_session (sessionID, sessionDate, sessionName, startTime, endTime, location, courseID, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
     $stmt->bind_param("sssssss", $sessionID, $sessionDate, $sessionName, $startTime, $endTime, $location, $courseID);
     $stmt->execute();
 
@@ -406,7 +405,7 @@ function refreshTrainingStatuses($conn, $courseID = null) {
 
         $newStatus = calculateTrainingStatusFromSessionRange($row["firstStart"], $row["lastEnd"]);
         if ($newStatus !== strtolower((string)$row["currentStatus"])) {
-            $stmt = $conn->prepare("UPDATE course SET status = ? WHERE courseID = ?");
+            $stmt = $conn->prepare("UPDATE course SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE courseID = ?");
             $stmt->bind_param("ss", $newStatus, $row["courseID"]);
             $stmt->execute();
         }
@@ -577,7 +576,7 @@ function organiserOtherText($organiserName) {
 
 function syncApprovedTrainingParticipants($conn, $courseID = null) {
     if (!procedureExists($conn, "sp_add_approved_participant")) {
-        throw new Exception("Stored procedure sp_add_approved_participant is missing. Import the fyp2.0 database objects first.");
+        throw new Exception("Stored procedure sp_add_approved_participant is missing. Import the canonical TrainHub database objects first.");
     }
 
     $courseFilterTeacher = "";
@@ -768,7 +767,14 @@ unset($_SESSION["flash_message"], $_SESSION["flash_type"]);
 
 try {
     refreshTrainingStatuses($conn);
-    syncApprovedTrainingParticipants($conn);
+
+    /* Participant synchronization used to scan every enrollment and every
+       course_participant row on every GET. Only the detail page needs those
+       participants immediately, so synchronize the course being viewed. */
+    $viewCourseIDForSync = trim((string)($_GET["view"] ?? ""));
+    if ($_SERVER["REQUEST_METHOD"] !== "POST" && $viewCourseIDForSync !== "") {
+        syncApprovedTrainingParticipants($conn, $viewCourseIDForSync);
+    }
 } catch (Throwable $syncError) {
     if ($message === "") {
         $message = $syncError->getMessage();
@@ -817,7 +823,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $conn->begin_transaction();
             $inTransaction = true;
 
-            $stmt = $conn->prepare("\n                INSERT INTO course (\n                    courseID, courseName, description, capacity, price,\n                    courseCategory, targetAudience, otherTargetAudience,\n                    staffAttendeeIDs, staffAttendeeAssignedBy, staffAttendeeAssignedDate,\n                    courseRating, status, poster, mode, onlineLink,\n                    whatsappGroup, closeDate, organiserName, courseType\n                )\n                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n            ");
+            $stmt = $conn->prepare("\n                INSERT INTO course (\n                    courseID, courseName, description, capacity, price,\n                    courseCategory, targetAudience, otherTargetAudience,\n                    staffAttendeeIDs, staffAttendeeAssignedBy, staffAttendeeAssignedDate,\n                    courseRating, status, poster, mode, onlineLink,\n                    whatsappGroup, closeDate, organiserName, courseType,\n                    created_at, updated_at\n                )\n                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\n            ");
             $stmt->bind_param(
                 "sssidssssssdssssssss",
                 $courseID,
@@ -897,7 +903,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $conn->begin_transaction();
             $inTransaction = true;
 
-            $stmt = $conn->prepare("\n                UPDATE course\n                SET courseName = ?, description = ?, capacity = ?, price = ?,\n                    courseCategory = ?, targetAudience = ?, otherTargetAudience = ?,\n                    staffAttendeeIDs = ?, staffAttendeeAssignedBy = ?, staffAttendeeAssignedDate = ?,\n                    poster = ?, mode = ?, onlineLink = ?, whatsappGroup = ?, closeDate = ?,\n                    organiserName = ?, courseType = ?\n                WHERE courseID = ?\n            ");
+            $stmt = $conn->prepare("\n                UPDATE course\n                SET courseName = ?, description = ?, capacity = ?, price = ?,\n                    courseCategory = ?, targetAudience = ?, otherTargetAudience = ?,\n                    staffAttendeeIDs = ?, staffAttendeeAssignedBy = ?, staffAttendeeAssignedDate = ?,\n                    poster = ?, mode = ?, onlineLink = ?, whatsappGroup = ?, closeDate = ?,\n                    organiserName = ?, courseType = ?, updated_at = CURRENT_TIMESTAMP\n                WHERE courseID = ?\n            ");
             $stmt->bind_param(
                 "ssidssssssssssssss",
                 $courseName,
@@ -1004,7 +1010,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $sessionCourse = $stmt->get_result()->fetch_assoc();
             if (!$sessionCourse) throw new Exception("Session record was not found.");
 
-            $stmt = $conn->prepare("UPDATE course_session SET sessionName = ?, sessionDate = ?, startTime = ?, endTime = ?, location = ? WHERE sessionID = ?");
+            $stmt = $conn->prepare("UPDATE course_session SET sessionName = ?, sessionDate = ?, startTime = ?, endTime = ?, location = ?, updated_at = CURRENT_TIMESTAMP WHERE sessionID = ?");
             $stmt->bind_param("ssssss", $sessionName, $sessionDate, $startTime, $endTime, $location, $sessionID);
             $stmt->execute();
 
@@ -1125,7 +1131,7 @@ $totalUpcoming = getCount($conn, "SELECT COUNT(*) AS total FROM course WHERE sta
 $totalOngoing = getCount($conn, "SELECT COUNT(*) AS total FROM course WHERE status = 'ongoing'");
 $totalSessions = getCount($conn, "SELECT COUNT(*) AS total FROM course_session");
 
-$baseCourseSelect = "\n    SELECT\n        c.*,\n        COALESCE(cr.feedbackTrainingRating, c.courseRating, 0) AS displayTrainingRating,\n        COALESCE(s.sessionTotal, 0) AS sessionTotal,\n        COALESCE(p.participantTotal, 0) AS participantTotal,\n        COALESCE(tr.trainerNames, '') AS trainerNames,\n        s.firstSessionDate\n    FROM course c\n    LEFT JOIN (\n        SELECT courseID, COUNT(*) AS sessionTotal, MIN(sessionDate) AS firstSessionDate\n        FROM course_session\n        GROUP BY courseID\n    ) s ON s.courseID = c.courseID\n    LEFT JOIN (\n        SELECT courseID, COUNT(*) AS participantTotal\n        FROM course_participant\n        GROUP BY courseID\n    ) p ON p.courseID = c.courseID\n    LEFT JOIN (\n        SELECT cs.courseID, GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames\n        FROM course_session cs\n        LEFT JOIN session_trainer st ON st.sessionID = cs.sessionID\n        LEFT JOIN trainer t ON t.trainerID = st.trainerID\n        GROUP BY cs.courseID\n    ) tr ON tr.courseID = c.courseID\n    LEFT JOIN (\n        SELECT courseID, AVG(averageRating) AS feedbackTrainingRating\n        FROM v_feedback_category_average\n        WHERE averageRating IS NOT NULL\n          AND categoryName NOT LIKE '%Trainer%'\n        GROUP BY courseID\n    ) cr ON cr.courseID = c.courseID\n";
+$baseCourseSelect = "\n    SELECT\n        c.*,\n        COALESCE(c.courseRating, 0) AS displayTrainingRating,\n        COALESCE(s.sessionTotal, 0) AS sessionTotal,\n        COALESCE(p.participantTotal, 0) AS participantTotal,\n        COALESCE(tr.trainerNames, '') AS trainerNames,\n        s.firstSessionDate\n    FROM course c\n    LEFT JOIN (\n        SELECT courseID, COUNT(*) AS sessionTotal, MIN(sessionDate) AS firstSessionDate\n        FROM course_session\n        GROUP BY courseID\n    ) s ON s.courseID = c.courseID\n    LEFT JOIN (\n        SELECT courseID, COUNT(*) AS participantTotal\n        FROM course_participant\n        GROUP BY courseID\n    ) p ON p.courseID = c.courseID\n    LEFT JOIN (\n        SELECT cs.courseID, GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames\n        FROM course_session cs\n        LEFT JOIN session_trainer st ON st.sessionID = cs.sessionID\n        LEFT JOIN trainer t ON t.trainerID = st.trainerID\n        GROUP BY cs.courseID\n    ) tr ON tr.courseID = c.courseID\n";
 
 $courses = mysqli_query($conn, $baseCourseSelect . " $where ORDER BY c.courseID DESC");
 $courseRows = [];
@@ -1157,25 +1163,6 @@ while ($category = mysqli_fetch_assoc($categoryQuery)) {
     $categoryOptions[] = $category["courseCategory"];
 }
 
-$sessionsByTraining = [];
-$sessionQuery = mysqli_query($conn, "\n    SELECT\n        cs.courseID,\n        cs.sessionID,\n        cs.sessionDate,\n        cs.sessionName,\n        cs.startTime,\n        cs.endTime,\n        cs.location,\n        qr.qrID,\n        qr.qrCode,\n        qr.attendanceLink,\n        qr.expiryTime,\n        GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames,\n        GROUP_CONCAT(DISTINCT CONCAT(t.trainerID, '::', t.trainerName) ORDER BY t.trainerName SEPARATOR '||') AS trainerPairs\n    FROM course_session cs\n    LEFT JOIN qr_session qr ON qr.sessionID = cs.sessionID\n    LEFT JOIN session_trainer st ON st.sessionID = cs.sessionID\n    LEFT JOIN trainer t ON t.trainerID = st.trainerID\n    GROUP BY cs.courseID, cs.sessionID, cs.sessionDate, cs.sessionName, cs.startTime, cs.endTime, cs.location, qr.qrID, qr.qrCode, qr.attendanceLink, qr.expiryTime\n    ORDER BY cs.sessionDate ASC, cs.startTime ASC\n");
-while ($session = mysqli_fetch_assoc($sessionQuery)) {
-    $sessionsByTraining[$session["courseID"]][] = $session;
-}
-
-$participantsByTraining = [];
-$participantQuery = mysqli_query($conn, "\n    SELECT\n        cp.participantID,\n        cp.participantType,\n        cp.participantName,\n        cp.courseID,\n        c.courseName,\n        CASE\n            WHEN cp.participantType = 'teacher' THEN COALESCE(s.schoolName, 'School')\n            WHEN cp.participantType = 'staff' THEN COALESCE(se.department, 'Staff')\n            WHEN cp.participantType = 'new_teacher' THEN COALESCE(sg.schoolName, 'School')\n            WHEN cp.participantType = 'public' THEN COALESCE(o.organization, 'Public')\n            ELSE '-'\n        END AS organisationName,\n        cp.RSVPStatus,\n        cp.isFeedbackCompleted,\n        cp.replacementStatus,\n        cp.gn_id,\n        cp.outsider_id,\n        cp.teacherID,\n        cp.staffID\n    FROM course_participant cp\n    JOIN course c ON cp.courseID = c.courseID\n    LEFT JOIN teacher t ON cp.teacherID = t.teacherID\n    LEFT JOIN v_teacher_current_school teacher_school ON t.teacherID = teacher_school.teacherID\n    LEFT JOIN school s ON teacher_school.schoolID = s.schoolID\n    LEFT JOIN staff_edu se ON cp.staffID = se.staffID\n    LEFT JOIN guru_new gn ON cp.gn_id = gn.gn_id\n    LEFT JOIN school sg ON gn.schoolID = sg.schoolID\n    LEFT JOIN outsider o ON cp.outsider_id = o.outsider_id\n    ORDER BY cp.participantType ASC, cp.participantName ASC\n");
-while ($participant = mysqli_fetch_assoc($participantQuery)) {
-    $participantsByTraining[$participant["courseID"]][] = $participant;
-}
-
-$attendanceBySession = [];
-$attendanceQuery = mysqli_query($conn, "\n    SELECT 'teacher' AS participantType, CAST(teacher_id AS CHAR) AS sourceID, session_id AS sessionID, attendance_id AS attendanceID, attendance_status AS attendanceStatus, scanned_at AS scannedAt, approved_at AS approvedAt, remarks AS remarks FROM attendance\n    UNION ALL\n    SELECT 'staff' AS participantType, CAST(staffID AS CHAR) AS sourceID, session_id AS sessionID, attendanceStaff_id AS attendanceID, attendance_status AS attendanceStatus, scanned_at AS scannedAt, approved_at AS approvedAt, remarks AS remarks FROM attendance_staff\n    UNION ALL\n    SELECT 'new_teacher' AS participantType, CAST(gn_id AS CHAR) AS sourceID, session_id AS sessionID, attendGuruBaru_id AS attendanceID, attendance_status AS attendanceStatus, scanned_at AS scannedAt, approved_at AS approvedAt, remarks AS remarks FROM attendance_guru_baru\n    UNION ALL\n    SELECT 'public' AS participantType, CAST(outsider_id AS CHAR) AS sourceID, session_id AS sessionID, attendOutsider_id AS attendanceID, attendance_status AS attendanceStatus, scanned_at AS scannedAt, approved_at AS approvedAt, remarks AS remarks FROM attendance_outsider\n");
-while ($attendanceRow = mysqli_fetch_assoc($attendanceQuery)) {
-    $attendanceKey = strtolower((string)$attendanceRow["participantType"]) . "|" . (string)$attendanceRow["sourceID"];
-    $attendanceBySession[$attendanceRow["sessionID"]][$attendanceKey] = $attendanceRow;
-}
-
 $activeMode = "";
 $activeCourseID = "";
 if (!empty($_GET["view"])) {
@@ -1187,6 +1174,116 @@ if (!empty($_GET["view"])) {
 } elseif (!empty($_GET["sessions"])) {
     $activeMode = "sessions";
     $activeCourseID = trim((string)$_GET["sessions"]);
+}
+
+$safeActiveCourseID = $activeCourseID !== ''
+    ? mysqli_real_escape_string($conn, $activeCourseID)
+    : '';
+
+/* Detail datasets are intentionally lazy. The previous build loaded every
+   session, participant and attendance row for every course even on the list
+   screen, which became very slow once the combined database grew. */
+$sessionsByTraining = [];
+if ($safeActiveCourseID !== '' && in_array($activeMode, ['view', 'sessions'], true)) {
+    $sessionQuery = mysqli_query($conn, "
+        SELECT
+            cs.courseID,
+            cs.sessionID,
+            cs.sessionDate,
+            cs.sessionName,
+            cs.startTime,
+            cs.endTime,
+            cs.location,
+            qr.qrID,
+            qr.qrCode,
+            qr.attendanceLink,
+            qr.expiryTime,
+            GROUP_CONCAT(DISTINCT t.trainerName ORDER BY t.trainerName SEPARATOR ', ') AS trainerNames,
+            GROUP_CONCAT(DISTINCT CONCAT(t.trainerID, '::', t.trainerName) ORDER BY t.trainerName SEPARATOR '||') AS trainerPairs
+        FROM course_session cs
+        LEFT JOIN qr_session qr ON qr.sessionID = cs.sessionID
+        LEFT JOIN session_trainer st ON st.sessionID = cs.sessionID
+        LEFT JOIN trainer t ON t.trainerID = st.trainerID
+        WHERE cs.courseID = '$safeActiveCourseID'
+        GROUP BY cs.courseID, cs.sessionID, cs.sessionDate, cs.sessionName, cs.startTime, cs.endTime, cs.location, qr.qrID, qr.qrCode, qr.attendanceLink, qr.expiryTime
+        ORDER BY cs.sessionDate ASC, cs.startTime ASC
+    ");
+    while ($session = mysqli_fetch_assoc($sessionQuery)) {
+        $sessionsByTraining[$session["courseID"]][] = $session;
+    }
+}
+
+$participantsByTraining = [];
+$attendanceBySession = [];
+if ($safeActiveCourseID !== '' && $activeMode === 'view') {
+    $participantQuery = mysqli_query($conn, "
+        SELECT
+            cp.participantID,
+            cp.participantType,
+            cp.participantName,
+            cp.courseID,
+            c.courseName,
+            CASE
+                WHEN cp.participantType = 'teacher' THEN COALESCE(s.schoolName, 'School')
+                WHEN cp.participantType = 'staff' THEN COALESCE(se.department, 'Staff')
+                WHEN cp.participantType = 'new_teacher' THEN COALESCE(sg.schoolName, 'School')
+                WHEN cp.participantType = 'public' THEN COALESCE(o.organization, 'Public')
+                ELSE '-'
+            END AS organisationName,
+            cp.RSVPStatus,
+            cp.isFeedbackCompleted,
+            cp.replacementStatus,
+            cp.gn_id,
+            cp.outsider_id,
+            cp.teacherID,
+            cp.staffID
+        FROM course_participant cp
+        JOIN course c ON cp.courseID = c.courseID
+        LEFT JOIN teacher t ON cp.teacherID = t.teacherID
+        LEFT JOIN v_teacher_current_school teacher_school ON t.teacherID = teacher_school.teacherID
+        LEFT JOIN school s ON teacher_school.schoolID = s.schoolID
+        LEFT JOIN staff_edu se ON cp.staffID = se.staffID
+        LEFT JOIN guru_new gn ON cp.gn_id = gn.gn_id
+        LEFT JOIN school sg ON gn.schoolID = sg.schoolID
+        LEFT JOIN outsider o ON cp.outsider_id = o.outsider_id
+        WHERE cp.courseID = '$safeActiveCourseID'
+        ORDER BY cp.participantType ASC, cp.participantName ASC
+    ");
+    while ($participant = mysqli_fetch_assoc($participantQuery)) {
+        $participantsByTraining[$participant["courseID"]][] = $participant;
+    }
+
+    $attendanceQuery = mysqli_query($conn, "
+        SELECT 'teacher' AS participantType, CAST(a.teacher_id AS CHAR) AS sourceID,
+               a.session_id AS sessionID, a.attendance_id AS attendanceID,
+               a.attendance_status AS attendanceStatus, a.scanned_at AS scannedAt,
+               a.approved_at AS approvedAt, a.remarks AS remarks
+        FROM attendance a
+        JOIN course_session csf ON csf.sessionID = a.session_id
+        WHERE csf.courseID = '$safeActiveCourseID'
+        UNION ALL
+        SELECT 'staff', CAST(ast.staffID AS CHAR), ast.session_id, ast.attendanceStaff_id,
+               ast.attendance_status, ast.scanned_at, ast.approved_at, ast.remarks
+        FROM attendance_staff ast
+        JOIN course_session csf ON csf.sessionID = ast.session_id
+        WHERE csf.courseID = '$safeActiveCourseID'
+        UNION ALL
+        SELECT 'new_teacher', CAST(ag.gn_id AS CHAR), ag.session_id, ag.attendGuruBaru_id,
+               ag.attendance_status, ag.scanned_at, ag.approved_at, ag.remarks
+        FROM attendance_guru_baru ag
+        JOIN course_session csf ON csf.sessionID = ag.session_id
+        WHERE csf.courseID = '$safeActiveCourseID'
+        UNION ALL
+        SELECT 'public', CAST(ao.outsider_id AS CHAR), ao.session_id, ao.attendOutsider_id,
+               ao.attendance_status, ao.scanned_at, ao.approved_at, ao.remarks
+        FROM attendance_outsider ao
+        JOIN course_session csf ON csf.sessionID = ao.session_id
+        WHERE csf.courseID = '$safeActiveCourseID'
+    ");
+    while ($attendanceRow = mysqli_fetch_assoc($attendanceQuery)) {
+        $attendanceKey = strtolower((string)$attendanceRow["participantType"]) . "|" . (string)$attendanceRow["sourceID"];
+        $attendanceBySession[$attendanceRow["sessionID"]][$attendanceKey] = $attendanceRow;
+    }
 }
 
 $activeCourse = $activeCourseID !== "" ? fetchCourseByID($conn, $activeCourseID, $baseCourseSelect) : null;

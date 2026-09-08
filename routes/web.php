@@ -27,7 +27,8 @@ Route::get('/', fn () => redirect()->route('login'));
 | existing TrainHub V4 links and redirects continue to work during the
 | migration. Clean aliases are provided below.
 */
-Route::match(['GET', 'POST'], '/login.php', [UnifiedAuthController::class, 'login'])->name('login');
+Route::get('/login.php', [UnifiedAuthController::class, 'login'])->name('login');
+Route::post('/login.php', [UnifiedAuthController::class, 'login'])->middleware('throttle:10,1')->name('login.process');
 Route::match(['GET', 'POST'], '/choose-role.php', [UnifiedAuthController::class, 'roles'])->name('auth.roles');
 Route::match(['GET', 'POST'], '/choose-system.php', [UnifiedAuthController::class, 'systems'])->name('auth.systems');
 Route::match(['GET', 'POST'], '/forgot_password.php', [AuthController::class, 'forgotPassword'])->name('password.forgot');
@@ -69,7 +70,7 @@ Route::get('/generated/{path}', function (string $path) {
     return response()->file($file);
 })->where('path', '.*');
 
-// Local-only migration diagnostic: confirms Eloquent can read fyp2.0.
+// Local-only migration diagnostic: confirms Eloquent can read the configured canonical database.
 if (app()->environment('local')) {
     Route::get('/laravel-status', function () {
         return response()->json([

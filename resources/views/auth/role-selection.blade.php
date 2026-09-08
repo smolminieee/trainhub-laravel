@@ -53,7 +53,8 @@
             @endforeach
         </div>
 
-        <div class="selection-actions">
+        <div class="selection-actions selection-actions-with-clear">
+            <button class="secondary-auth-btn clear-selection-btn" type="button" id="clearRoleSelection">Clear selection</button>
             <button class="primary-auth-btn compact-btn" type="submit">Continue<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
     </form>
@@ -62,8 +63,12 @@
 (function(){
     const form = document.getElementById('roleChoiceForm');
     const error = document.getElementById('roleClientError');
+    const clear = document.getElementById('clearRoleSelection');
     if (!form) return;
-    form.querySelectorAll('input[type="radio"][name="role"]').forEach(function(radio){
+
+    const radios = Array.from(form.querySelectorAll('input[type="radio"][name="role"]'));
+
+    radios.forEach(function(radio){
         let wasChecked = false;
         radio.addEventListener('pointerdown', function(){ wasChecked = radio.checked; });
         radio.addEventListener('click', function(){
@@ -71,10 +76,21 @@
             if (error) error.hidden = true;
         });
     });
+
+    if (clear) {
+        clear.addEventListener('click', function(){
+            radios.forEach(function(radio){ radio.checked = false; });
+            if (error) error.hidden = true;
+        });
+    }
+
     form.addEventListener('submit', function(event){
         if (!form.querySelector('input[name="role"]:checked')) {
             event.preventDefault();
-            if (error) { error.hidden = false; error.scrollIntoView({behavior:'smooth', block:'center'}); }
+            if (error) {
+                error.hidden = false;
+                error.scrollIntoView({behavior:'smooth', block:'center'});
+            }
         }
     });
 })();

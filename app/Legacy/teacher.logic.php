@@ -4,12 +4,10 @@ require_once __DIR__ . '/config/db.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-if (!$conn->select_db('fyp2.0')) {
+if (!$conn->select_db(TRAINHUB_DATABASE_NAME)) {
     http_response_code(500);
-    exit('Unable to select the fyp2.0 database.');
+    exit('Unable to select the configured TrainHub database.');
 }
-
-$conn->set_charset('utf8mb4');
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
 $staffID = $_SESSION['staffID'] ?? $_SESSION['staff_id'] ?? '';
@@ -433,13 +431,20 @@ $schoolResult = mysqli_query($conn, "
         s.schoolAddress,
         s.totalTeacher,
         s.phoneNumber,
-        COUNT(DISTINCT t.teacherID) AS teacher_total,
-        COUNT(DISTINCT g.gn_id) AS new_teacher_total
+        COALESCE(tc.teacher_total, 0) AS teacher_total,
+        COALESCE(g.new_teacher_total, 0) AS new_teacher_total
     FROM school s
-    LEFT JOIN v_teacher_current_school tcs ON s.schoolID = tcs.schoolID
-    LEFT JOIN teacher t ON t.teacherID = tcs.teacherID
-    LEFT JOIN guru_new g ON s.schoolID = g.schoolID
-    GROUP BY s.schoolID, s.schoolName, s.schoolAddress, s.totalTeacher, s.phoneNumber
+    LEFT JOIN (
+        SELECT schoolID, COUNT(DISTINCT teacherID) AS teacher_total
+        FROM assign
+        WHERE status IN ('Aktif', 'active')
+        GROUP BY schoolID
+    ) tc ON tc.schoolID = s.schoolID
+    LEFT JOIN (
+        SELECT schoolID, COUNT(*) AS new_teacher_total
+        FROM guru_new
+        GROUP BY schoolID
+    ) g ON g.schoolID = s.schoolID
     ORDER BY s.schoolName ASC
 ");
 
@@ -460,124 +465,139 @@ if ($selectedSchoolID !== '' && isset($schoolsByID[$selectedSchoolID])) {
     }
 }
 
-$teacherResult = mysqli_query($conn, "
-    SELECT
-        t.teacherID,
-        t.teacherName,
-        t.ICNumber,
-        t.phoneNumber,
-        t.email,
-        t.appointedDate,
-        t.serviceDate,
-        tcs.schoolID,
-        t.resignation_request_status,
-        s.schoolName
-    FROM teacher t
-    LEFT JOIN v_teacher_current_school tcs ON t.teacherID = tcs.teacherID
-    LEFT JOIN school s ON tcs.schoolID = s.schoolID
-    ORDER BY s.schoolName ASC, t.teacherName ASC
-");
+/* Only load teacher/new-teacher detail rows when the user opens a school or
+   the New Teacher tab. The initial school list uses the stored school counts. */
+if ($selectedSchoolID !== '') {
+    $safeSelectedSchoolID = mysqli_real_escape_string($conn, $selectedSchoolID);
+    $teacherResult = mysqli_query($conn, "
+        SELECT
+            t.teacherID,
+            t.teacherName,
+            t.ICNumber,
+            t.phoneNumber,
+            t.email,
+            t.appointedDate,
+            t.serviceDate,
+            tcs.schoolID,
+            t.resignation_request_status,
+            s.schoolName
+        FROM teacher t
+        INNER JOIN v_teacher_current_school tcs ON t.teacherID = tcs.teacherID
+        LEFT JOIN school s ON tcs.schoolID = s.schoolID
+        WHERE tcs.schoolID = '$safeSelectedSchoolID'
+        ORDER BY t.teacherName ASC
+    ");
 
-while ($teacher = mysqli_fetch_assoc($teacherResult)) {
-    $schoolKey = (string)($teacher['schoolID'] ?? '');
-    $teachersBySchool[$schoolKey][] = $teacher;
+    while ($teacher = mysqli_fetch_assoc($teacherResult)) {
+        $teachersBySchool[$selectedSchoolID][] = $teacher;
+    }
 }
 
-$eligibleResult = mysqli_query($conn, "
-    SELECT
-        t.teacherID,
-        t.teacherName,
-        tcs.schoolID,
-        s.schoolName,
-        t.appointedDate,
-        TIMESTAMPDIFF(YEAR, t.appointedDate, CURDATE()) AS serviceYears
-    FROM teacher t
-    LEFT JOIN v_teacher_current_school tcs ON t.teacherID = tcs.teacherID
-    LEFT JOIN school s ON tcs.schoolID = s.schoolID
-    WHERE t.appointedDate IS NOT NULL
-    AND TIMESTAMPDIFF(YEAR, t.appointedDate, CURDATE()) > 10
-    ORDER BY t.teacherName ASC
-");
+$needsNewTeacherDetails = ($selectedSchoolID !== '' || $activeTab === 'new_teacher');
+if ($needsNewTeacherDetails) {
+    $eligibleResult = mysqli_query($conn, "
+        SELECT
+            t.teacherID,
+            t.teacherName,
+            tcs.schoolID,
+            s.schoolName,
+            t.appointedDate,
+            TIMESTAMPDIFF(YEAR, t.appointedDate, CURDATE()) AS serviceYears
+        FROM teacher t
+        LEFT JOIN v_teacher_current_school tcs ON t.teacherID = tcs.teacherID
+        LEFT JOIN school s ON tcs.schoolID = s.schoolID
+        WHERE t.appointedDate IS NOT NULL
+          AND t.appointedDate < DATE_SUB(CURDATE(), INTERVAL 10 YEAR)
+        ORDER BY t.teacherName ASC
+    ");
 
-while ($row = mysqli_fetch_assoc($eligibleResult)) {
-    $eligibleTeacherList[] = $row;
-}
+    while ($row = mysqli_fetch_assoc($eligibleResult)) {
+        $eligibleTeacherList[] = $row;
+    }
 
-$newTeacherResult = mysqli_query($conn, "
-    SELECT
-        g.gn_id,
-        g.gn_name,
-        g.email,
-        g.phone_number,
-        g.ic_number,
-        g.gender,
-        g.appointed_date,
-        g.current_status,
-        g.schoolID,
-        s.schoolName,
+    $newTeacherWhere = '';
+    if ($selectedSchoolID !== '' && $activeTab !== 'new_teacher') {
+        $safeSelectedSchoolID = mysqli_real_escape_string($conn, $selectedSchoolID);
+        $newTeacherWhere = "WHERE g.schoolID = '$safeSelectedSchoolID'";
+    }
 
-        oaObs.assignmentID AS observerAssignmentID,
-        oaObs.assignedDate AS observerAssignedDate,
-        oaObs.endDate AS observerAssignmentEndDate,
-        oaObs.status AS observerAssignmentStatus,
+    $newTeacherResult = mysqli_query($conn, "
+        SELECT
+            g.gn_id,
+            g.gn_name,
+            g.email,
+            g.phone_number,
+            g.ic_number,
+            g.gender,
+            g.appointed_date,
+            g.current_status,
+            g.schoolID,
+            s.schoolName,
 
-        o.observerID,
-        o.startDate AS observerStartDate,
-        o.endDate AS observerEndDate,
-        o.status AS observerStatus,
-        obsT.teacherID AS observerTeacherID,
-        obsT.teacherName AS observerName,
-        obsSchool.schoolID AS observerSchoolID,
+            oaObs.assignmentID AS observerAssignmentID,
+            oaObs.assignedDate AS observerAssignedDate,
+            oaObs.endDate AS observerAssignmentEndDate,
+            oaObs.status AS observerAssignmentStatus,
 
-        oaExt.assignmentID AS externalAssignmentID,
-        oaExt.assignedDate AS externalAssignedDate,
-        oaExt.endDate AS externalAssignmentEndDate,
-        oaExt.status AS externalAssignmentStatus,
+            o.observerID,
+            o.startDate AS observerStartDate,
+            o.endDate AS observerEndDate,
+            o.status AS observerStatus,
+            obsT.teacherID AS observerTeacherID,
+            obsT.teacherName AS observerName,
+            obsSchool.schoolID AS observerSchoolID,
 
-        eo.externalObserverID,
-        eo.startDate AS externalStartDate,
-        eo.endDate AS externalEndDate,
-        eo.status AS externalStatus,
-        extT.teacherID AS externalTeacherID,
-        extT.teacherName AS externalObserverName,
-        extSchool.schoolID AS externalObserverSchoolID
-    FROM guru_new g
-    LEFT JOIN school s ON g.schoolID = s.schoolID
+            oaExt.assignmentID AS externalAssignmentID,
+            oaExt.assignedDate AS externalAssignedDate,
+            oaExt.endDate AS externalAssignmentEndDate,
+            oaExt.status AS externalAssignmentStatus,
 
-    LEFT JOIN observer_assignment oaObs
-        ON oaObs.assignmentID = (
-            SELECT oa1.assignmentID
-            FROM observer_assignment oa1
-            WHERE oa1.gn_id = g.gn_id
-            AND oa1.observerID IS NOT NULL
-            AND oa1.status = 'active'
-            ORDER BY oa1.assignedDate DESC, oa1.assignmentID DESC
-            LIMIT 1
-        )
-    LEFT JOIN observer o ON oaObs.observerID = o.observerID
-    LEFT JOIN teacher obsT ON o.teacherID = obsT.teacherID
-    LEFT JOIN v_teacher_current_school obsSchool ON obsT.teacherID = obsSchool.teacherID
+            eo.externalObserverID,
+            eo.startDate AS externalStartDate,
+            eo.endDate AS externalEndDate,
+            eo.status AS externalStatus,
+            extT.teacherID AS externalTeacherID,
+            extT.teacherName AS externalObserverName,
+            extSchool.schoolID AS externalObserverSchoolID
+        FROM guru_new g
+        LEFT JOIN school s ON g.schoolID = s.schoolID
 
-    LEFT JOIN observer_assignment oaExt
-        ON oaExt.assignmentID = (
-            SELECT oa2.assignmentID
-            FROM observer_assignment oa2
-            WHERE oa2.gn_id = g.gn_id
-            AND oa2.externalObserverID IS NOT NULL
-            AND oa2.status = 'active'
-            ORDER BY oa2.assignedDate DESC, oa2.assignmentID DESC
-            LIMIT 1
-        )
-    LEFT JOIN external_observer eo ON oaExt.externalObserverID = eo.externalObserverID
-    LEFT JOIN teacher extT ON eo.teacherID = extT.teacherID
-    LEFT JOIN v_teacher_current_school extSchool ON extT.teacherID = extSchool.teacherID
+        LEFT JOIN observer_assignment oaObs
+            ON oaObs.assignmentID = (
+                SELECT oa1.assignmentID
+                FROM observer_assignment oa1
+                WHERE oa1.gn_id = g.gn_id
+                  AND oa1.observerID IS NOT NULL
+                  AND oa1.status = 'active'
+                ORDER BY oa1.assignedDate DESC, oa1.assignmentID DESC
+                LIMIT 1
+            )
+        LEFT JOIN observer o ON oaObs.observerID = o.observerID
+        LEFT JOIN teacher obsT ON o.teacherID = obsT.teacherID
+        LEFT JOIN v_teacher_current_school obsSchool ON obsT.teacherID = obsSchool.teacherID
 
-    ORDER BY g.gn_name ASC
-");
+        LEFT JOIN observer_assignment oaExt
+            ON oaExt.assignmentID = (
+                SELECT oa2.assignmentID
+                FROM observer_assignment oa2
+                WHERE oa2.gn_id = g.gn_id
+                  AND oa2.externalObserverID IS NOT NULL
+                  AND oa2.status = 'active'
+                ORDER BY oa2.assignedDate DESC, oa2.assignmentID DESC
+                LIMIT 1
+            )
+        LEFT JOIN external_observer eo ON oaExt.externalObserverID = eo.externalObserverID
+        LEFT JOIN teacher extT ON eo.teacherID = extT.teacherID
+        LEFT JOIN v_teacher_current_school extSchool ON extT.teacherID = extSchool.teacherID
 
-while ($row = mysqli_fetch_assoc($newTeacherResult)) {
-    $newTeachers[] = $row;
-    $newTeachersBySchool[(string)($row['schoolID'] ?? '')][] = $row;
+        $newTeacherWhere
+        ORDER BY g.gn_name ASC
+    ");
+
+    while ($row = mysqli_fetch_assoc($newTeacherResult)) {
+        $newTeachers[] = $row;
+        $newTeachersBySchool[(string)($row['schoolID'] ?? '')][] = $row;
+    }
 }
 
 function tabCount(array $schoolsByCategory, string $category): int {

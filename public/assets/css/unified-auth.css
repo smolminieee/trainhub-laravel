@@ -255,3 +255,24 @@ body.unified-auth-page :is(a, button, input):focus-visible { outline: 3px solid 
 .selection-alert[hidden] { display:none!important; }
 .auth-alert-error.selection-alert { border-left:4px solid var(--danger); }
 @media (max-width:980px){ .auth-brand-simple { padding-block:34px; } .auth-brand-simple .auth-logo{height:78px;} }
+
+/* Unified role/system selection refinements - 2026-09-08 */
+.selection-actions-with-clear {
+    gap: 10px;
+    align-items: center;
+}
+.clear-selection-btn {
+    min-width: 142px;
+}
+.compact-system-card .choice-content strong {
+    line-height: 1.5;
+}
+@media (max-width: 680px) {
+    .selection-actions-with-clear {
+        flex-direction: column-reverse;
+    }
+    .selection-actions-with-clear .primary-auth-btn,
+    .selection-actions-with-clear .secondary-auth-btn {
+        width: 100%;
+    }
+}

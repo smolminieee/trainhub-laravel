@@ -5,12 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | TrainHub Al Amin</title>
 
-    <link rel="stylesheet" href="assets/css/dashboard.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/dashboard.css?v=<?php echo file_exists(public_path('assets/css/dashboard.css')) ? filemtime(public_path('assets/css/dashboard.css')) : time(); ?>">
     <link rel="stylesheet" href="assets/css/style.css?v=<?php echo file_exists(public_path('assets/css/style.css')) ? filemtime(public_path('assets/css/style.css')) : time(); ?>">
 
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body class="trainhub-app page-dashboard">
@@ -189,7 +186,7 @@
                 </div>
 
                 <div class="credit-chart-wrap">
-                    <canvas id="creditChart"></canvas>
+                    <div class="credit-ring" style="--credit-percent: <?php echo (float)$creditPercent; ?>%;" aria-label="<?php echo (int)$creditPercent; ?> percent of annual credit completed"></div>
 
                     <div class="credit-center">
                         <strong><?php echo (int)$creditPercent; ?>%</strong>
@@ -586,116 +583,166 @@ function fetchAudit(ajaxUrl, normalUrl) {
 
 function setupCalendar() {
     const calendarEl = document.getElementById("calendar");
-
-    if (!calendarEl) return;
-
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: "dayGridMonth",
-        height: "auto",
-        contentHeight: "auto",
-        fixedWeekCount: true,
-        showNonCurrentDates: true,
-        dayMaxEvents: 1,
-        headerToolbar: false,
-        events: calendarEvents,
-
-        eventContent: function() {
-            return {
-                html: `<span class="calendar-dot"></span>`
-            };
-        },
-
-        dateClick: function(info) {
-            openTrainingListByDate(info.dateStr);
-        },
-
-        eventClick: function(info) {
-            openTrainingListByDate(info.event.extendedProps.date);
-        }
-    });
-
-    calendar.render();
-
     const monthSelect = document.getElementById("calendarMonth");
     const yearSelect = document.getElementById("calendarYear");
 
-    if (!monthSelect || !yearSelect) return;
+    if (!calendarEl || !monthSelect || !yearSelect) return;
 
     const monthNames = [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     ];
-
+    const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    let selectedMonth = today.getMonth();
+    let selectedYear = today.getFullYear();
 
-    monthNames.forEach(function(month, index) {
-        const option = document.createElement("option");
-        option.value = index;
-        option.textContent = month;
-
-        if (index === currentMonth) {
-            option.selected = true;
-        }
-
-        monthSelect.appendChild(option);
+    const eventsByDate = new Map();
+    calendarEvents.forEach(eventData => {
+        const dateKey = eventData.dateOnly || eventData.extendedProps?.date || "";
+        if (!dateKey) return;
+        if (!eventsByDate.has(dateKey)) eventsByDate.set(dateKey, []);
+        eventsByDate.get(dateKey).push(eventData);
     });
 
-    for (let year = currentYear - 5; year <= currentYear + 5; year++) {
-        const option = document.createElement("option");
-        option.value = year;
-        option.textContent = year;
+    function localDateKey(year, month, day) {
+        return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
 
-        if (year === currentYear) {
-            option.selected = true;
+    function populateControls() {
+        monthSelect.innerHTML = "";
+        yearSelect.innerHTML = "";
+
+        monthNames.forEach((month, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            option.textContent = month;
+            option.selected = index === selectedMonth;
+            monthSelect.appendChild(option);
+        });
+
+        const currentYear = today.getFullYear();
+        for (let year = currentYear - 5; year <= currentYear + 5; year++) {
+            const option = document.createElement("option");
+            option.value = String(year);
+            option.textContent = String(year);
+            option.selected = year === selectedYear;
+            yearSelect.appendChild(option);
+        }
+    }
+
+    function makeDayCell(year, month, day, isCurrentMonth) {
+        const dateKey = localDateKey(year, month, day);
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "native-calendar-day" + (isCurrentMonth ? "" : " is-outside");
+        cell.dataset.date = dateKey;
+
+        const number = document.createElement("span");
+        number.className = "native-calendar-day-number";
+        number.textContent = String(day);
+        cell.appendChild(number);
+
+        const date = new Date(year, month, day);
+        if (
+            date.getFullYear() === today.getFullYear() &&
+            date.getMonth() === today.getMonth() &&
+            date.getDate() === today.getDate()
+        ) {
+            cell.classList.add("is-today");
         }
 
-        yearSelect.appendChild(option);
+        const dayEvents = eventsByDate.get(dateKey) || [];
+        if (dayEvents.length > 0) {
+            const markers = document.createElement("span");
+            markers.className = "native-calendar-markers";
+
+            const dot = document.createElement("span");
+            dot.className = "calendar-dot";
+            markers.appendChild(dot);
+
+            if (dayEvents.length > 1) {
+                const count = document.createElement("span");
+                count.className = "native-calendar-count";
+                count.textContent = String(dayEvents.length);
+                markers.appendChild(count);
+            }
+            cell.appendChild(markers);
+        }
+
+        cell.addEventListener("click", () => openTrainingListByDate(dateKey));
+        return cell;
+    }
+
+    function renderCalendar() {
+        const fragment = document.createDocumentFragment();
+        const shell = document.createElement("div");
+        shell.className = "native-calendar";
+
+        const weekdays = document.createElement("div");
+        weekdays.className = "native-calendar-weekdays";
+        weekdayNames.forEach(name => {
+            const item = document.createElement("span");
+            item.textContent = name;
+            weekdays.appendChild(item);
+        });
+        shell.appendChild(weekdays);
+
+        const grid = document.createElement("div");
+        grid.className = "native-calendar-grid";
+
+        const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
+        const daysThisMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const previousMonthDays = new Date(selectedYear, selectedMonth, 0).getDate();
+
+        for (let index = 0; index < 42; index++) {
+            const relativeDay = index - firstDay + 1;
+            let cellYear = selectedYear;
+            let cellMonth = selectedMonth;
+            let cellDay = relativeDay;
+            let isCurrentMonth = true;
+
+            if (relativeDay < 1) {
+                isCurrentMonth = false;
+                cellMonth -= 1;
+                if (cellMonth < 0) {
+                    cellMonth = 11;
+                    cellYear -= 1;
+                }
+                cellDay = previousMonthDays + relativeDay;
+            } else if (relativeDay > daysThisMonth) {
+                isCurrentMonth = false;
+                cellMonth += 1;
+                if (cellMonth > 11) {
+                    cellMonth = 0;
+                    cellYear += 1;
+                }
+                cellDay = relativeDay - daysThisMonth;
+            }
+
+            grid.appendChild(makeDayCell(cellYear, cellMonth, cellDay, isCurrentMonth));
+        }
+
+        shell.appendChild(grid);
+        fragment.appendChild(shell);
+        calendarEl.replaceChildren(fragment);
     }
 
     function goToSelectedMonthYear() {
-        const selectedMonth = parseInt(monthSelect.value);
-        const selectedYear = parseInt(yearSelect.value);
-
-        calendar.gotoDate(new Date(selectedYear, selectedMonth, 1));
+        selectedMonth = Number.parseInt(monthSelect.value, 10);
+        selectedYear = Number.parseInt(yearSelect.value, 10);
+        if (!Number.isInteger(selectedMonth) || !Number.isInteger(selectedYear)) return;
+        renderCalendar();
     }
 
+    populateControls();
+    renderCalendar();
     monthSelect.addEventListener("change", goToSelectedMonthYear);
     yearSelect.addEventListener("change", goToSelectedMonthYear);
 }
 
 document.addEventListener("DOMContentLoaded", function () {
     attachAuditAjax();
-
-    const creditChartCanvas = document.getElementById("creditChart");
-
-    if (creditChartCanvas) {
-        new Chart(creditChartCanvas, {
-            type: "doughnut",
-            data: {
-                labels: ["Completed", "Remaining"],
-                datasets: [{
-                    data: [
-                        <?php echo (float)$achievedCredit; ?>,
-                        <?php echo (float)$remainingCredit; ?>
-                    ],
-                    backgroundColor: [
-                        "#2563EB",
-                        "#EFF6FF"
-                    ],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                cutout: "72%",
-                plugins: {
-                    legend: { display: false }
-                }
-            }
-        });
-    }
-
     setupCalendar();
 
     <?php if (isset($_GET['credit_history_year'])) { ?>

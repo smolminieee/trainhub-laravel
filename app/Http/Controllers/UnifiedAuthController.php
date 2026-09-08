@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\UnifiedHandoffService;
 use App\Services\UnifiedIdentityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,7 +11,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class UnifiedAuthController extends Controller
 {
-    public function __construct(private readonly UnifiedIdentityService $identityService) {}
+    public function __construct(
+        private readonly UnifiedIdentityService $identityService,
+        private readonly UnifiedHandoffService $handoffService,
+    ) {}
 
     public function login(Request $request): Response|RedirectResponse
     {
@@ -27,6 +31,11 @@ class UnifiedAuthController extends Controller
 
         $email = strtolower(trim((string) $request->input('email', '')));
         $password = (string) $request->input('password', '');
+
+        // Never preserve an old authenticated context while processing a new
+        // credential attempt. A failed login must leave no unified identity.
+        $this->closeStaffLoginSession();
+        $this->clearAuthenticationContext();
 
         if ($email === '' || $password === '') {
             return response()->view('auth.unified-login', [
@@ -63,7 +72,6 @@ class UnifiedAuthController extends Controller
             session_regenerate_id(true);
         }
 
-        $this->clearSelectedContext();
         $_SESSION['unified_user'] = $result['user'];
         $_SESSION['unified_authenticated_at'] = time();
 
@@ -86,6 +94,14 @@ class UnifiedAuthController extends Controller
             $available[$roleKey] = $roleConfig[$roleKey] + ['identity' => $identity];
         }
 
+        if ($available === []) {
+            $this->clearAuthenticationContext();
+            return response()->view('auth.unified-login', [
+                'error' => 'No active system role is available for this account.',
+                'email' => (string) ($user['email'] ?? ''),
+            ], 403);
+        }
+
         if ($request->isMethod('post')) {
             $role = (string) $request->input('role', '');
             if (!isset($available[$role])) {
@@ -96,9 +112,15 @@ class UnifiedAuthController extends Controller
                 ], 422);
             }
 
-            $_SESSION['selected_role'] = $role;
-            unset($_SESSION['selected_system']);
             $this->applyRoleSessionAliases($role, (array) ($user['roles'][$role] ?? []));
+            unset($_SESSION['selected_system']);
+
+            // Staff EDU login/logout auditing belongs to the shared TrainHub
+            // login_session table. Create it once when the Staff EDU role is
+            // selected, even if the user then opens Aidid's admin workspace.
+            if ($role === 'staff_edu') {
+                $this->prepareNureenStaffSession($user, $role);
+            }
 
             return redirect()->route('auth.systems');
         }
@@ -144,13 +166,16 @@ class UnifiedAuthController extends Controller
             }
 
             $_SESSION['selected_system'] = $system;
-            $url = trim((string) ($systems[$system]['url'] ?? ''));
 
+            // TrainHub is the gateway application itself, so no cross-project
+            // handoff is needed for Nureen Staff EDU access.
             if ($system === 'nureen') {
                 $this->prepareNureenStaffSession($user, $role);
+                return redirect()->route('dashboard');
             }
 
-            if ($url === '') {
+            $baseUrl = rtrim(trim((string) ($systems[$system]['url'] ?? '')), '/');
+            if ($baseUrl === '') {
                 return response()->view('auth.system-placeholder', [
                     'user' => $user,
                     'roleKey' => $role,
@@ -160,7 +185,23 @@ class UnifiedAuthController extends Controller
                 ]);
             }
 
-            return redirect()->to($url);
+            try {
+                $identity = (array) (($user['roles'] ?? [])[$role] ?? []);
+                $token = $this->handoffService->issue($system, $role, $identity, $user);
+                $path = '/'.ltrim((string) config('unified_access.handoff_path', '/unified-login/handoff'), '/');
+                $target = $baseUrl.$path.'?token='.rawurlencode($token);
+
+                return redirect()->away($target);
+            } catch (\Throwable $e) {
+                report($e);
+                return response()->view('auth.system-selection', [
+                    'user' => $user,
+                    'roleKey' => $role,
+                    'role' => $roleConfig,
+                    'systems' => $systems,
+                    'error' => 'The selected system could not be opened. Please try again.',
+                ], 500);
+            }
         }
 
         return response()->view('auth.system-selection', [
@@ -174,25 +215,9 @@ class UnifiedAuthController extends Controller
 
     public function logout(): RedirectResponse
     {
-        $staffID = (string) ($_SESSION['staffID'] ?? $_SESSION['staff_id'] ?? '');
-        $loginSessionID = (int) ($_SESSION['loginSessionID'] ?? 0);
+        $this->closeStaffLoginSession();
+        $this->clearAuthenticationContext();
 
-        try {
-            if ($staffID !== '' && $loginSessionID > 0 && DB::getSchemaBuilder()->hasTable('login_session')) {
-                DB::table('login_session')
-                    ->where('sessionID', $loginSessionID)
-                    ->where('staffID', $staffID)
-                    ->where('sessionStatus', 'active')
-                    ->update([
-                        'logoutTime' => now(),
-                        'sessionStatus' => 'ended',
-                    ]);
-            }
-        } catch (\Throwable $e) {
-            report($e);
-        }
-
-        $_SESSION = [];
         if (session_status() === PHP_SESSION_ACTIVE) {
             if (ini_get('session.use_cookies')) {
                 $params = session_get_cookie_params();
@@ -217,6 +242,35 @@ class UnifiedAuthController extends Controller
         return is_array($user) && !empty($user['email']) ? $user : null;
     }
 
+    private function clearAuthenticationContext(): void
+    {
+        unset(
+            $_SESSION['unified_user'],
+            $_SESSION['unified_authenticated_at'],
+            $_SESSION['selected_role'],
+            $_SESSION['selected_system'],
+            $_SESSION['staffID'],
+            $_SESSION['staffName'],
+            $_SESSION['staff_id'],
+            $_SESSION['staff_name'],
+            $_SESSION['teacherID'],
+            $_SESSION['teacherName'],
+            $_SESSION['gn_id'],
+            $_SESSION['outsider_id'],
+            $_SESSION['principalID'],
+            $_SESSION['hrid'],
+            $_SESSION['hrID'],
+            $_SESSION['trainerID'],
+            $_SESSION['trainer_id'],
+            $_SESSION['observerID'],
+            $_SESSION['observer_id'],
+            $_SESSION['externalObserverID'],
+            $_SESSION['external_observer_id'],
+            $_SESSION['role'],
+            $_SESSION['loginSessionID']
+        );
+    }
+
     private function clearSelectedContext(): void
     {
         unset(
@@ -229,7 +283,6 @@ class UnifiedAuthController extends Controller
             $_SESSION['teacherID'],
             $_SESSION['teacherName'],
             $_SESSION['gn_id'],
-            $_SESSION['applicant_id'],
             $_SESSION['outsider_id'],
             $_SESSION['principalID'],
             $_SESSION['hrid'],
@@ -247,8 +300,10 @@ class UnifiedAuthController extends Controller
 
     private function applyRoleSessionAliases(string $role, array $identity): void
     {
-        // Remove aliases from any previously selected role while preserving the
-        // authenticated unified identity and role list.
+        if (($_SESSION['selected_role'] ?? '') === 'staff_edu') {
+            $this->closeStaffLoginSession();
+        }
+
         $unified = $_SESSION['unified_user'] ?? null;
         $authenticatedAt = $_SESSION['unified_authenticated_at'] ?? null;
         $this->clearSelectedContext();
@@ -272,11 +327,7 @@ class UnifiedAuthController extends Controller
                 $_SESSION['teacherName'] = $name;
                 break;
             case 'new_teacher':
-                if (($identity['source'] ?? '') === 'applicant') {
-                    $_SESSION['applicant_id'] = $id;
-                } else {
-                    $_SESSION['gn_id'] = $id;
-                }
+                $_SESSION['gn_id'] = $id;
                 break;
             case 'outsider':
                 $_SESSION['outsider_id'] = $id;
@@ -302,6 +353,47 @@ class UnifiedAuthController extends Controller
                 $_SESSION['external_observer_id'] = $id;
                 $_SESSION['teacherID'] = (string) ($identity['teacherID'] ?? ($identity['teacher']['id'] ?? ''));
                 break;
+        }
+    }
+
+
+    private function closeStaffLoginSession(): void
+    {
+        $staffID = (string) ($_SESSION['staffID'] ?? $_SESSION['staff_id'] ?? '');
+        $loginSessionID = (int) ($_SESSION['loginSessionID'] ?? 0);
+
+        if ($staffID === '') {
+            return;
+        }
+
+        try {
+            if (!DB::getSchemaBuilder()->hasTable('login_session')) {
+                return;
+            }
+
+            $query = DB::table('login_session')
+                ->where('staffID', $staffID)
+                ->where('sessionStatus', 'active');
+
+            if ($loginSessionID > 0) {
+                $query->where('sessionID', $loginSessionID);
+            } else {
+                $latest = (clone $query)
+                    ->orderByDesc('loginTime')
+                    ->orderByDesc('sessionID')
+                    ->value('sessionID');
+                if ($latest === null) {
+                    return;
+                }
+                $query->where('sessionID', $latest);
+            }
+
+            $query->update([
+                'logoutTime' => now(),
+                'sessionStatus' => 'ended',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 

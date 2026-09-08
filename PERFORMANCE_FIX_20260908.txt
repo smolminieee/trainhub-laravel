@@ -1,0 +1,45 @@
+TrainHub Al Amin - Browser Page Unresponsive Performance Fix
+Date: 2026-09-08
+Database: alamin_main_database (Canonical V6)
+
+WHY THIS FIX WAS NEEDED
+- The Laravel dev server was already returning dashboard.php quickly (~0.5s), but Chrome could still become unresponsive after the response arrived.
+- The shared topbar had MutationObservers watching the entire document. During dynamic rendering they repeatedly rescanned the full DOM and called getComputedStyle(), which could create very high browser CPU usage.
+- Dashboard also loaded FullCalendar and Chart.js from external CDNs even though only a small calendar and credit progress graphic were needed.
+
+CHANGES IN THIS BUILD
+1. Shared topbar performance
+   - Form enhancement observer now processes only newly inserted form fragments instead of rescanning the whole document for every mutation.
+   - Modal-state observer no longer reacts to all child-list rendering. Attribute-driven checks are queued to at most once per animation frame.
+   - This shared fix applies to Dashboard, Teacher, Training, Trainer, Feedback and Certificate pages.
+
+2. Dashboard front-end performance
+   - Removed FullCalendar CDN dependency.
+   - Removed Chart.js CDN dependency.
+   - Replaced credit doughnut chart with a CSS-only progress ring.
+   - Replaced FullCalendar with a lightweight native 42-cell monthly calendar.
+   - Dashboard CSS cache version now uses file modification time instead of a new timestamp on every request.
+
+3. Existing database/query optimizations retained
+   - Dashboard credit-hour query optimization retained.
+   - Course participant sync remains scoped instead of running globally on every list-page request.
+   - Teacher, Trainer and Feedback page query reductions retained.
+   - Canonical V6 timestamps and alamin_main_database configuration retained.
+
+VALIDATION
+- 93 PHP/Blade files passed php -l syntax checks.
+- Dashboard JavaScript passed Node syntax checking.
+- Shared topbar JavaScript passed Node syntax checking.
+- Dashboard route remains DashboardController@index.
+- No FullCalendar or Chart.js references remain on Dashboard.
+
+AFTER COPYING INTO YOUR OLD PROJECT FOLDER
+Run from the Laravel project directory:
+    php artisan optimize:clear
+
+Then start/test:
+    php artisan serve
+    http://127.0.0.1:8000/login.php
+
+NOTE
+The packaging environment does not include PHP DOMDocument, so artisan optimize:clear could not be executed here. Generated Laravel log/runtime files were cleared manually before packaging. This does not affect the source-code fixes.

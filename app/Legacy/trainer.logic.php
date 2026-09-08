@@ -4,10 +4,9 @@ include __DIR__ . '/config/db.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-/* Always use the schema created by fyp2_0_full_import.sql. */
-mysqli_set_charset($conn, 'utf8mb4');
-if (!mysqli_select_db($conn, 'fyp2.0')) {
-    throw new RuntimeException('Unable to select database fyp2.0.');
+/* Always use the TrainHub schema configured by Laravel DB_DATABASE. */
+if (!mysqli_select_db($conn, TRAINHUB_DATABASE_NAME)) {
+    throw new RuntimeException('Unable to select the configured TrainHub database.');
 }
 
 
@@ -21,17 +20,23 @@ function nullableValue($value) {
 }
 
 function tableExists($conn, $tableName) {
+    static $cache = [];
+    $key = strtolower((string)$tableName);
+    if (array_key_exists($key, $cache)) return $cache[$key];
     $safeTable = mysqli_real_escape_string($conn, $tableName);
     $result = mysqli_query($conn, "SHOW TABLES LIKE '$safeTable'");
-    return $result && mysqli_num_rows($result) > 0;
+    return $cache[$key] = (bool)($result && mysqli_num_rows($result) > 0);
 }
 
 function columnExists($conn, $tableName, $columnName) {
+    static $cache = [];
+    $key = strtolower((string)$tableName . '.' . (string)$columnName);
+    if (array_key_exists($key, $cache)) return $cache[$key];
     $safeTable = str_replace('`', '', $tableName);
     $safeColumn = mysqli_real_escape_string($conn, $columnName);
 
     $result = mysqli_query($conn, "SHOW COLUMNS FROM `$safeTable` LIKE '$safeColumn'");
-    return $result && mysqli_num_rows($result) > 0;
+    return $cache[$key] = (bool)($result && mysqli_num_rows($result) > 0);
 }
 
 function setAuditStaff($conn) {
@@ -292,9 +297,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     trainerPic,
                     averageRating,
                     status,
-                    paymentStatus
+                    paymentStatus,
+                    created_at,
+                    updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ");
 
             mysqli_stmt_bind_param(
@@ -353,7 +360,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     expertise = ?,
                     trainerPic = ?,
                     status = ?,
-                    paymentStatus = ?
+                    paymentStatus = ?,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE trainerID = ?
             ");
 
@@ -430,7 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mustArchive = ($certificateTotal > 0 || $feedbackTotal > 0);
 
             if ($mustArchive) {
-                $stmt = mysqli_prepare($conn, "UPDATE trainer SET status = 'inactive' WHERE trainerID = ?");
+                $stmt = mysqli_prepare($conn, "UPDATE trainer SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE trainerID = ?");
                 mysqli_stmt_bind_param($stmt, 's', $trainerID);
                 mysqli_stmt_execute($stmt);
 
@@ -637,64 +645,11 @@ if ($expertiseFilter !== '') {
     $where .= " AND t.expertise LIKE '%$safeExpertise%'";
 }
 
-$hasTrainerRatingView = tableExists($conn, 'v_trainer_rating');
-
-$hasFeedbackRating = tableExists($conn, 'feedback_response') && columnExists($conn, 'feedback_response', 'rating');
-$hasFeedbackJoinTables = $hasFeedbackRating
-    && tableExists($conn, 'feedback_question')
-    && tableExists($conn, 'feedback_category')
-    && tableExists($conn, 'feedback_form')
-    && tableExists($conn, 'session_trainer')
-    && columnExists($conn, 'feedback_response', 'questionID')
-    && columnExists($conn, 'feedback_question', 'questionID')
-    && columnExists($conn, 'feedback_question', 'categoryID')
-    && columnExists($conn, 'feedback_category', 'categoryID')
-    && columnExists($conn, 'feedback_category', 'formID')
-    && columnExists($conn, 'feedback_category', 'categoryName')
-    && columnExists($conn, 'feedback_form', 'formID')
-    && columnExists($conn, 'feedback_form', 'sessionID')
-    && columnExists($conn, 'session_trainer', 'sessionID')
-    && columnExists($conn, 'session_trainer', 'trainerID');
-
-$displayRatingSelect = ($hasTrainerRatingView || $hasFeedbackJoinTables)
-    ? "COALESCE(fr.feedbackRating, t.averageRating, 0) AS displayRating"
-    : "COALESCE(t.averageRating, 0) AS displayRating";
-
-/*
-    New database object connection:
-    If v_trainer_rating exists, trainer.php uses it directly for trainer rating.
-    Fallback keeps the old join method so the page still works if the view has not been imported.
-*/
-if ($hasTrainerRatingView) {
-    $feedbackRatingJoin = "
-    LEFT JOIN (
-        SELECT
-            trainerID,
-            AVG(trainerAverageRating) AS feedbackRating
-        FROM v_trainer_rating
-        WHERE trainerAverageRating IS NOT NULL
-        GROUP BY trainerID
-    ) fr ON fr.trainerID = t.trainerID
-    ";
-} elseif ($hasFeedbackJoinTables) {
-    $feedbackRatingJoin = "
-    LEFT JOIN (
-        SELECT
-            st.trainerID,
-            AVG(fr.rating) AS feedbackRating
-        FROM feedback_response fr
-        INNER JOIN feedback_question fq ON fq.questionID = fr.questionID
-        INNER JOIN feedback_category fc ON fc.categoryID = fq.categoryID
-        INNER JOIN feedback_form ff ON ff.formID = fc.formID
-        INNER JOIN session_trainer st ON st.sessionID = ff.sessionID
-        WHERE fr.rating IS NOT NULL
-        AND fc.categoryName LIKE '%Trainer%'
-        GROUP BY st.trainerID
-    ) fr ON fr.trainerID = t.trainerID
-    ";
-} else {
-    $feedbackRatingJoin = "";
-}
+/* trainer.averageRating is the canonical cached rating. feedback.logic.php
+   refreshes it whenever participant feedback is submitted, so the trainer
+   list does not need to rebuild the feedback joins on every page load. */
+$displayRatingSelect = "COALESCE(t.averageRating, 0) AS displayRating";
+$feedbackRatingJoin = "";
 
 $countQuery = mysqli_query($conn, "SELECT COUNT(*) AS total FROM trainer t $where");
 $totalRows = (int)mysqli_fetch_assoc($countQuery)['total'];
@@ -762,15 +717,29 @@ while ($row = mysqli_fetch_assoc($trainersResult)) {
 }
 
 $documentsByTrainer = [];
-if (tableExists($conn, 'trainer_document')) {
-    $documentResult = mysqli_query($conn, "
-        SELECT td.*, se.staffName AS sentByStaffName
-        FROM trainer_document td
-        LEFT JOIN staff_edu se ON se.staffID = td.sentByStaffID
-        ORDER BY td.created_at DESC, td.document_id DESC
-    ");
-    while ($document = mysqli_fetch_assoc($documentResult)) {
-        $documentsByTrainer[$document['trainerID']][] = $document;
+if (!empty($trainerRows)) {
+    $trainerIDsForDocuments = array_values(array_filter(array_map(
+        static fn($row) => trim((string)($row['trainerID'] ?? '')),
+        $trainerRows
+    )));
+
+    if (!empty($trainerIDsForDocuments)) {
+        $escapedTrainerIDs = array_map(
+            static fn($id) => "'" . mysqli_real_escape_string($conn, $id) . "'",
+            $trainerIDsForDocuments
+        );
+        $trainerIDList = implode(',', $escapedTrainerIDs);
+
+        $documentResult = mysqli_query($conn, "
+            SELECT td.*, se.staffName AS sentByStaffName
+            FROM trainer_document td
+            LEFT JOIN staff_edu se ON se.staffID = td.sentByStaffID
+            WHERE td.trainerID IN ($trainerIDList)
+            ORDER BY td.created_at DESC, td.document_id DESC
+        ");
+        while ($document = mysqli_fetch_assoc($documentResult)) {
+            $documentsByTrainer[$document['trainerID']][] = $document;
+        }
     }
 }
 
@@ -786,37 +755,14 @@ $activeTrainers = (int)mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total FROM trainer WHERE status = 'active'
 "))['total'];
 
-if ($hasTrainerRatingView) {
-    $avgRating = mysqli_fetch_assoc(mysqli_query($conn, "
-        SELECT COALESCE(AVG(trainerAverageRating), 0) AS avgRating
-        FROM v_trainer_rating
-        WHERE trainerAverageRating IS NOT NULL
-    "))['avgRating'];
-} elseif ($hasFeedbackJoinTables) {
-    $avgRating = mysqli_fetch_assoc(mysqli_query($conn, "
-        SELECT COALESCE(AVG(fr.rating), 0) AS avgRating
-        FROM feedback_response fr
-        INNER JOIN feedback_question fq ON fq.questionID = fr.questionID
-        INNER JOIN feedback_category fc ON fc.categoryID = fq.categoryID
-        INNER JOIN feedback_form ff ON ff.formID = fc.formID
-        INNER JOIN session_trainer st ON st.sessionID = ff.sessionID
-        WHERE fr.rating IS NOT NULL
-        AND fc.categoryName LIKE '%Trainer%'
-    "))['avgRating'];
-} else {
-    $avgRating = mysqli_fetch_assoc(mysqli_query($conn, "
-        SELECT COALESCE(AVG(averageRating), 0) AS avgRating
-        FROM trainer
-    "))['avgRating'];
-}
+$avgRating = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT COALESCE(AVG(averageRating), 0) AS avgRating
+    FROM trainer
+"))['avgRating'];
 
-$sessionsAssigned = 0;
-
-if (tableExists($conn, 'session_trainer')) {
-    $sessionsAssigned = (int)mysqli_fetch_assoc(mysqli_query($conn, "
-        SELECT COUNT(*) AS total FROM session_trainer
-    "))['total'];
-}
+$sessionsAssigned = (int)mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT COUNT(*) AS total FROM session_trainer
+"))['total'];
 
 $expertiseOptions = mysqli_query($conn, "
     SELECT DISTINCT expertise

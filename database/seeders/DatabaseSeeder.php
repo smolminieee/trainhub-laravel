@@ -8,6 +8,6 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // TrainHub uses the existing fyp2.0 data. No demo seeding is required.
+        // TrainHub uses the existing canonical database data. No demo seeding is required.
     }
 }
